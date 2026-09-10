@@ -19,9 +19,10 @@ DND.Engine = (function () {
         customBackground: false,
         featsEnabled: true,
         multiclass: false,
-        optionalClassFeatures: false
+        optionalClassFeatures: false,
+        books: { PHB: true, XGE: true, TCE: true }
       },
-      classes: [{ classId: '', level: 1, skills: [], tools: {}, expertise: [], choices: {}, optionalFeatures: [] }],
+      classes: [{ classId: '', level: 1, skills: [], tools: {}, expertise: [], choices: {}, optionalFeatures: [], spells: { cantrips: [], known: [], book: [], secrets: [] } }],
       hpMethod: 'average',
       hpRolls: {},
       hpManual: null,
@@ -661,7 +662,11 @@ DND.Engine = (function () {
       };
     });
 
-    var pactEntry = casters.filter(function (ce) { return ce.cls.spellcasting.type === 'pact'; })[0];
+    /* Highest slot level this character can actually cast, which bounds the
+       spells worth choosing. */
+    var pactEntry0 = casters.filter(function (ce) { return ce.cls.spellcasting.type === 'pact'; })[0];
+
+    var pactEntry = pactEntry0;
     var pact = null;
     if (pactEntry) {
       var p = DND.PACT_MAGIC[pactEntry.level];
@@ -682,7 +687,36 @@ DND.Engine = (function () {
     casterLevel = Math.min(20, casterLevel);
     if (casterLevel > 0) slots = DND.SLOTS_FULL[casterLevel];
 
-    return { perClass: perClass, slots: slots, casterLevel: casterLevel, combined: combined, pact: pact };
+    /* Attach the spell picks and their limits to each casting class. */
+    perClass.forEach(function (p) {
+      var ce = casters.filter(function (c) { return c.cls.id === p.classId; })[0];
+      var picks = (ce.entry.spells) || {};
+      var maxLv = 0;
+      if (p.type === 'pact') maxLv = pact ? pact.level : 0;
+      else if (slots) maxLv = slots.length;
+      /* a multiclassed caster may still prepare from its own progression */
+      if (p.type !== 'pact' && combined) {
+        var own = DND.casterLevel(p.type, p.level, false);
+        if (own > 0) maxLv = Math.max(maxLv, DND.SLOTS_FULL[own].length);
+      }
+      p.maxSpellLevel = maxLv;
+      p.cantripsChosen = (picks.cantrips || []).filter(function (x) { return x !== null; });
+      p.spellsChosen = (picks.known || []).filter(function (x) { return x !== null; });
+      p.bookChosen = (picks.book || []).filter(function (x) { return x !== null; });
+      p.secretsChosen = (picks.secrets || []).filter(function (x) { return x !== null; });
+      p.limit = p.prepared !== null ? p.prepared : p.known;
+      p.limitLabel = p.prepared !== null ? 'prepared' : 'known';
+      if (p.spellbook) {
+        p.bookLimit = 6 + Math.max(0, p.level - 1) * 2;
+      }
+      p.secretsLimit = 0;
+      if (p.classId === 'bard') {
+        [10, 14, 18].forEach(function (lv) { if (p.level >= lv) p.secretsLimit += 2; });
+      }
+    });
+
+    return { perClass: perClass, slots: slots, casterLevel: casterLevel,
+             combined: combined, pact: pact };
   }
 
   function collectRaceChoices(race, subrace) {
@@ -806,6 +840,28 @@ DND.Engine = (function () {
       });
     });
 
+    /* spell picks */
+    var sc = computeSpellcasting(state, classEntries, scoresForPending(state, classEntries, race, subrace), DND.proficiencyBonus(level));
+    if (sc) {
+      sc.perClass.forEach(function (p) {
+        if (!p.active) return;
+        if (p.cantrips && p.cantripsChosen.length < p.cantrips) {
+          out.push(p.className + ': choose ' + (p.cantrips - p.cantripsChosen.length) + ' more cantrip' +
+            (p.cantrips - p.cantripsChosen.length === 1 ? '' : 's') + '.');
+        }
+        if (p.spellbook && p.bookChosen.length < p.bookLimit) {
+          out.push(p.className + ': ' + (p.bookLimit - p.bookChosen.length) + ' more spell' +
+            (p.bookLimit - p.bookChosen.length === 1 ? '' : 's') + ' to copy into your spellbook.');
+        } else if (p.limit && p.spellsChosen.length < p.limit) {
+          out.push(p.className + ': choose ' + (p.limit - p.spellsChosen.length) + ' more spell' +
+            (p.limit - p.spellsChosen.length === 1 ? '' : 's') + ' ' + p.limitLabel + '.');
+        }
+        if (p.secretsLimit && p.secretsChosen.length < p.secretsLimit) {
+          out.push(p.className + ': choose ' + (p.secretsLimit - p.secretsChosen.length) + ' more Magical Secrets.');
+        }
+      });
+    }
+
     var owed = featsOwed(state, race);
     if (state.feats.length < owed) {
       out.push('Choose ' + (owed - state.feats.length) + ' more feat' + (owed - state.feats.length === 1 ? '' : 's') + '.');
@@ -833,6 +889,30 @@ DND.Engine = (function () {
       else if (slot.mode === 'asi' && (!slot.a || !slot.b)) out.push(label + ': assign both ability increases.');
     });
 
+    return out;
+  }
+
+  /* pendingChoices runs before the caller has scores to hand, so rebuild the
+     minimum needed for spellcasting limits. */
+  function scoresForPending(state, classEntries, race, subrace) {
+    var out = {};
+    var racial = resolveRacialAsi(race, subrace, state, []);
+    DND.ABILITIES.forEach(function (a) {
+      var total = (parseInt(state.baseScores[a.id], 10) || 10) + (racial.map[a.id] || 0);
+      state.feats.forEach(function (f) {
+        var feat = DND.findFeat(f.featId);
+        if (!feat || !feat.asi) return;
+        if (feat.asi.choose) { if (f.asi === a.id) total += (feat.asi.amount || 1); }
+        else if (feat.asi[a.id]) total += feat.asi[a.id];
+      });
+      Object.keys(state.asiSlots).forEach(function (k) {
+        var sl = state.asiSlots[k];
+        if (!sl || sl.mode !== 'asi') return;
+        if (sl.a === a.id) total += 1;
+        if (sl.b === a.id) total += 1;
+      });
+      out[a.id] = { total: Math.min(24, total), mod: DND.abilityModifier(Math.min(24, total)) };
+    });
     return out;
   }
 

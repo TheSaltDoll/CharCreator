@@ -111,6 +111,19 @@
       }
     }));
 
+    var bookRow = el('div', { class: 'book-row' }, [
+      el('span', { class: 'field-label', text: 'Spell sources' })
+    ]);
+    [['PHB', "Player's Handbook"], ['XGE', "Xanathar's Guide"], ['TCE', "Tasha's Cauldron"]]
+      .forEach(function (b) {
+        var on = state.options.books[b[0]] !== false;
+        bookRow.appendChild(el('button', {
+          type: 'button', class: 'book-chip', 'aria-pressed': on ? 'true' : 'false', text: b[1],
+          onclick: function () { update(function () { state.options.books[b[0]] = !on; }); }
+        }));
+      });
+    box.appendChild(bookRow);
+
     box.appendChild(DND.UI.toggle({
       label: 'Optional Class Features', source: 'TCE 9',
       description: 'Extra and replacement class features, such as the ranger\u2019s Deft Explorer and the rogue\u2019s Steady Aim.',
@@ -665,7 +678,7 @@
         class: 'btn', type: 'button', text: 'Add another class',
         onclick: function () {
           update(function () {
-            state.classes.push({ classId: '', level: 1, skills: [], tools: {}, expertise: [], choices: {}, optionalFeatures: [] });
+            state.classes.push({ classId: '', level: 1, skills: [], tools: {}, expertise: [], choices: {}, optionalFeatures: [], spells: blankSpells() });
           });
         }
       }));
@@ -721,7 +734,7 @@
           });
           entry.classId = v;
           entry.skills = []; entry.tools = {}; entry.expertise = [];
-          entry.choices = {}; entry.optionalFeatures = [];
+          entry.choices = {}; entry.optionalFeatures = []; entry.spells = blankSpells();
         });
       }
     })));
@@ -761,6 +774,7 @@
     renderFeatureChoices(nested, cls, entry);
     if (state.options.optionalClassFeatures) renderOptionalFeatures(nested, cls, entry);
     renderFeatureList(nested, cls, entry, info);
+    renderSpells(nested, cls, entry);
 
     wrap.appendChild(nested);
     return wrap;
@@ -1067,6 +1081,239 @@
         text: 'Your ' + info.subclassLabel + ' is due at level ' + info.subclassLevel +
           '. Archetype lists arrive in the next build — choose yours from the book for now.' }));
     }
+  }
+
+  function blankSpells() { return { cantrips: [], known: [], book: [], secrets: [] }; }
+
+  /* ---------- spell selection ---------- */
+  function renderSpells(box, cls, entry) {
+    if (!cls.spellcasting || !computed.spellcasting) return;
+    var p = computed.spellcasting.perClass.filter(function (x) { return x.classId === cls.id; })[0];
+    if (!p) return;
+
+    var wrap = el('div', { class: 'spell-block' });
+    wrap.appendChild(el('span', { class: 'field-label', text: 'Spells' }));
+
+    if (!p.active) {
+      wrap.appendChild(el('p', { class: 'field-hint', text: cls.name + 's gain spellcasting at level 2.' }));
+      box.appendChild(wrap);
+      return;
+    }
+
+    entry.spells = entry.spells || blankSpells();
+    var pool = DND.spellsForClass(cls.id, state.options.books, []);
+
+    var pickers = [];
+
+    if (p.cantrips) {
+      pickers.push(spellPicker({
+        title: 'Cantrips', limit: p.cantrips, get: function () { return entry.spells.cantrips; },
+        pool: function () { return pool; }, minLevel: 0, maxLevel: 0, key: cls.id + ':cantrips',
+        siblings: pickers
+      }));
+    }
+
+    if (p.spellbook) {
+      pickers.push(spellPicker({
+        title: 'Spellbook', limit: p.bookLimit, get: function () { return entry.spells.book; },
+        pool: function () { return pool; }, minLevel: 1, maxLevel: p.maxSpellLevel,
+        key: cls.id + ':book', siblings: pickers,
+        note: 'Six spells at 1st level, and two more each time you gain a wizard level. Anything you find and copy in play is on top of these.',
+        onRemove: function (id) {
+          var prep = entry.spells.known, i = prep.indexOf(id);
+          if (i !== -1) prep.splice(i, 1);
+        }
+      }));
+      pickers.push(spellPicker({
+        title: 'Prepared', limit: p.limit, get: function () { return entry.spells.known; },
+        pool: function () { return entry.spells.book; }, minLevel: 1, maxLevel: p.maxSpellLevel,
+        key: cls.id + ':prep', siblings: pickers,
+        note: 'Chosen from your spellbook. You may swap these after a long rest.',
+        empty: 'Copy some spells into your spellbook first.'
+      }));
+    } else if (p.limit) {
+      pickers.push(spellPicker({
+        title: p.limitLabel === 'prepared' ? 'Prepared' : 'Spells known',
+        limit: p.limit, get: function () { return entry.spells.known; },
+        pool: function () { return pool; }, minLevel: 1, maxLevel: p.maxSpellLevel,
+        key: cls.id + ':known', siblings: pickers,
+        note: p.limitLabel === 'prepared'
+          ? 'You may swap these after a long rest.'
+          : 'You may replace one when you gain a level in this class.'
+      }));
+    }
+
+    if (p.secretsLimit) {
+      var everything = [];
+      Object.keys(DND.SPELL_LISTS).forEach(function (c) {
+        DND.spellsForClass(c, state.options.books, []).forEach(function (id) {
+          if (everything.indexOf(id) === -1) everything.push(id);
+        });
+      });
+      pickers.push(spellPicker({
+        title: 'Magical Secrets', limit: p.secretsLimit, get: function () { return entry.spells.secrets; },
+        pool: function () { return everything; }, minLevel: 0, maxLevel: p.maxSpellLevel,
+        key: cls.id + ':secrets', siblings: pickers,
+        note: 'Any spell from any class list. These count as bard spells for you.'
+      }));
+    }
+
+    pickers.forEach(function (pk) { wrap.appendChild(pk.node); });
+    box.appendChild(wrap);
+  }
+
+  var spellFilters = {};
+
+  /* A picker mutates its array in state directly and refreshes only itself and
+     the sheet. A full re-render would reset the scroll position of the list on
+     every single tick, which makes choosing fourteen spells miserable. */
+  function spellPicker(opts) {
+    var node = el('div', { class: 'spell-picker' });
+    var countEl = el('span', { class: 'sp-count' });
+    node.appendChild(el('div', { class: 'sp-head' }, [
+      el('span', { class: 'sp-title', text: opts.title }), countEl
+    ]));
+    if (opts.note) node.appendChild(el('p', { class: 'field-hint', text: opts.note }));
+
+    var chipBox = el('div', { class: 'sp-chosen' });
+    node.appendChild(chipBox);
+
+    var search = el('input', { type: 'search', value: spellFilters[opts.key] || '',
+      placeholder: 'Filter by name, school, or level\u2026' });
+    var listBox = el('div', { class: 'sp-list' });
+    node.appendChild(search);
+    node.appendChild(listBox);
+    search.addEventListener('input', function () {
+      spellFilters[opts.key] = search.value;
+      lastSig = null;
+      drawList();
+    });
+
+    function available() {
+      return opts.pool().filter(function (id) {
+        var sp = DND.SPELLS[id];
+        return sp && sp.level >= opts.minLevel && sp.level <= opts.maxLevel;
+      });
+    }
+
+    var items = {};      /* spell id -> {label, checkbox} */
+    var lastSig = null;  /* pool signature, so the list is only rebuilt when it changes */
+
+    function toggle(id, on) {
+      var arr = opts.get();
+      var i = arr.indexOf(id);
+      if (on && i === -1) arr.push(id);
+      if (!on && i !== -1) {
+        arr.splice(i, 1);
+        if (opts.onRemove) opts.onRemove(id);
+      }
+      computed = DND.Engine.build(state);
+      (opts.siblings || []).forEach(function (pk) { pk.refresh(); });
+      renderSheet();
+    }
+
+    function refresh() {
+      var chosen = opts.get();
+      countEl.textContent = chosen.length + ' / ' + opts.limit;
+      countEl.className = 'sp-count' + (chosen.length === opts.limit ? ' done'
+        : (chosen.length > opts.limit ? ' over' : ''));
+
+      clear(chipBox);
+      chosen.slice().sort(function (a, b) {
+        var A = DND.SPELLS[a], B = DND.SPELLS[b];
+        return A.level - B.level || A.name.localeCompare(B.name);
+      }).forEach(function (id) {
+        var sp = DND.SPELLS[id];
+        chipBox.appendChild(el('button', {
+          type: 'button', class: 'sp-chip', title: 'Remove ' + sp.name,
+          text: sp.name + ' \u00b7 ' + (sp.level === 0 ? 'C' : sp.level),
+          onclick: function () { toggle(id, false); }
+        }));
+      });
+
+      var sig = available().join(',');
+      if (sig !== lastSig) drawList();
+      else syncItems();
+    }
+
+    /* Update tick state without touching the DOM structure. */
+    function syncItems() {
+      var chosen = opts.get();
+      var full = chosen.length >= opts.limit;
+      Object.keys(items).forEach(function (id) {
+        var it = items[id];
+        var on = chosen.indexOf(Number(id)) !== -1;
+        it.cb.checked = on;
+        it.cb.disabled = full && !on;
+        it.label.className = 'sp-item' + (on ? ' on' : '') + (full && !on ? ' full' : '');
+      });
+    }
+
+    function drawList() {
+      var top = listBox.scrollTop;
+      var chosen = opts.get();
+      var avail = available();
+      lastSig = avail.join(',');
+      items = {};
+      clear(listBox);
+
+      if (!avail.length) {
+        listBox.appendChild(el('p', { class: 'field-hint', text: opts.empty || 'Nothing available yet.' }));
+        return;
+      }
+
+      var q = (spellFilters[opts.key] || '').toLowerCase().trim();
+      var byLevel = {};
+      avail.forEach(function (id) {
+        var sp = DND.SPELLS[id];
+        if (q) {
+          var hay = (sp.name + ' ' + sp.school + ' ' + DND.ordinal(sp.level) + ' ' +
+            sp.source + ' ' + sp.castingTime + ' ' + sp.duration).toLowerCase();
+          if (hay.indexOf(q) === -1) return;
+        }
+        (byLevel[sp.level] = byLevel[sp.level] || []).push(sp);
+      });
+
+      var levels = Object.keys(byLevel).map(Number).sort(function (a, b) { return a - b; });
+      if (!levels.length) {
+        listBox.appendChild(el('p', { class: 'field-hint', text: 'Nothing matches that.' }));
+        return;
+      }
+
+      levels.forEach(function (lv) {
+        listBox.appendChild(el('div', { class: 'sp-lvl',
+          text: lv === 0 ? 'Cantrips' : DND.ordinal(lv) + ' level' }));
+        var grid = el('div', { class: 'sp-grid' });
+        byLevel[lv].sort(function (a, b) { return a.name.localeCompare(b.name); }).forEach(function (sp) {
+          var on = chosen.indexOf(sp.id) !== -1;
+          var full = chosen.length >= opts.limit && !on;
+          var marks = [];
+          if (sp.concentration) marks.push('C');
+          if (sp.ritual) marks.push('R');
+          var lbl = el('label', {
+            class: 'sp-item' + (on ? ' on' : '') + (full ? ' full' : ''),
+            title: sp.school + ' \u00b7 ' + sp.castingTime + ' \u00b7 ' + sp.range +
+              ' \u00b7 ' + sp.components + ' \u00b7 ' + sp.duration + ' \u00b7 ' + sp.source +
+              (sp.material ? '\nMaterial: ' + sp.material : '')
+          });
+          var cb = el('input', { type: 'checkbox' });
+          cb.checked = on;
+          cb.disabled = full;
+          cb.addEventListener('change', function () { toggle(sp.id, cb.checked); });
+          lbl.appendChild(cb);
+          lbl.appendChild(el('span', { class: 'sp-name', text: sp.name }));
+          if (marks.length) lbl.appendChild(el('span', { class: 'sp-mark', text: marks.join('') }));
+          items[sp.id] = { label: lbl, cb: cb };
+          grid.appendChild(lbl);
+        });
+        listBox.appendChild(grid);
+      });
+      listBox.scrollTop = top;
+    }
+
+    var api = { node: node, refresh: refresh };
+    refresh();
+    return api;
   }
 
   function renderHitPoints(box) {
@@ -1569,10 +1816,11 @@
         p.cantrips ? DND.UI.statRow('Cantrips known', String(p.cantrips)) : null,
         p.known ? DND.UI.statRow('Spells known', String(p.known)) : null,
         p.prepared ? DND.UI.statRow('Spells prepared', String(p.prepared)) : null,
-        p.spellbook ? DND.UI.statRow('Spellbook', 'yes') : null,
         p.ritual ? DND.UI.statRow('Rituals', 'yes') : null,
-        DND.UI.statRow('Focus', p.focus)
+        DND.UI.statRow('Focus', p.focus),
+        p.maxSpellLevel ? DND.UI.statRow('Highest spell level', DND.ordinal(p.maxSpellLevel)) : null
       ].filter(Boolean)));
+      sec.appendChild(spellListRows(p));
     });
 
     if (sc.slots) {
@@ -1599,6 +1847,31 @@
     return sec;
   }
 
+  /* The chosen spells, grouped by level, for the sheet. */
+  function spellListRows(p) {
+    var box = el('div', { class: 'sheet-spells' });
+    function group(title, ids) {
+      if (!ids || !ids.length) return;
+      var byLevel = {};
+      ids.forEach(function (id) {
+        var sp = DND.SPELLS[id];
+        if (sp) (byLevel[sp.level] = byLevel[sp.level] || []).push(sp.name);
+      });
+      box.appendChild(el('div', { class: 'ss-title', text: title }));
+      Object.keys(byLevel).map(Number).sort(function (a, b) { return a - b; }).forEach(function (lv) {
+        box.appendChild(el('div', { class: 'ss-row' }, [
+          el('span', { class: 'ss-lvl', text: lv === 0 ? 'C' : String(lv) }),
+          el('span', { class: 'ss-names', text: byLevel[lv].sort().join(', ') })
+        ]));
+      });
+    }
+    group('Cantrips', p.cantripsChosen);
+    if (p.spellbook) group('Spellbook', p.bookChosen);
+    group(p.limitLabel === 'prepared' ? 'Prepared' : 'Known', p.spellsChosen);
+    group('Magical Secrets', p.secretsChosen);
+    return box;
+  }
+
   function ordinal(n) {
     var s = ['th', 'st', 'nd', 'rd'], v = n % 100;
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
@@ -1623,7 +1896,7 @@
      Save / load
      ============================================================ */
   function saveJson() {
-    var blob = new Blob([JSON.stringify({ version: 2, state: state }, null, 2)], { type: 'application/json' });
+    var blob = new Blob([JSON.stringify({ version: 3, state: state }, null, 2)], { type: 'application/json' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = (state.name || 'character').replace(/[^\w-]+/g, '-').toLowerCase() + '.json';
@@ -1642,17 +1915,22 @@
         var parsed = JSON.parse(reader.result);
         var loaded = parsed.state || parsed;
         var fresh = DND.Engine.blankState();
+        if (loaded.options && !loaded.options.books) loaded.options.books = { PHB: true, XGE: true, TCE: true };
         Object.keys(fresh).forEach(function (k) {
           if (loaded[k] !== undefined) fresh[k] = loaded[k];
         });
         /* version 1 files carried a flat level and no classes */
         if (!Array.isArray(fresh.classes) || !fresh.classes.length) {
-          fresh.classes = [{ classId: '', level: loaded.level || 1, skills: [], tools: {}, expertise: [], choices: {}, optionalFeatures: [] }];
+          fresh.classes = [{ classId: '', level: loaded.level || 1, skills: [], tools: {}, expertise: [], choices: {}, optionalFeatures: [], spells: blankSpells() }];
         }
         fresh.classes.forEach(function (c) {
           c.skills = c.skills || []; c.tools = c.tools || {};
           c.expertise = c.expertise || []; c.choices = c.choices || {};
           c.optionalFeatures = c.optionalFeatures || [];
+          c.spells = c.spells || blankSpells();
+          ['cantrips','known','book','secrets'].forEach(function (b) {
+            c.spells[b] = (c.spells[b] || []).filter(function (x) { return typeof x === 'number'; });
+          });
         });
         state = fresh;
         render();

@@ -45,13 +45,22 @@ Pact Magic stays separate.
 **Hit points.** Fixed average, rolled, or entered by hand.
 
 **Spellcasting.** Save DC, spell attack bonus, cantrips known, spells known or
-prepared, ritual casting, spellbooks, focus, and the full slot table.
+prepared, ritual casting, focus, the full slot table, and the highest spell level
+you can actually cast.
+
+**Spells.** All 477 spells from the three books, with level, school, casting time,
+range, components, material, duration, and the ritual and concentration tags. Each
+class picks from its own list, filtered to the levels it can cast and capped at the
+number it is allowed. Wizards copy into a spellbook and prepare from it; bards draw
+Magical Secrets from every list in the game. Spell descriptions are deliberately not
+included — look them up in the book.
 
 **Feats.** All Player's Handbook feats, the Tasha's feats, and the Xanathar's racial
 feats, with prerequisites checked against your current scores and proficiencies.
 
 **Optional rules.** Customizing Your Origin, Customizing a Background, Feats,
 Multiclassing, and Tasha's Optional Class Features, each behind its own toggle.
+Spell sources can be switched on and off per book, which resizes every spell list.
 
 
 ## What comes next
@@ -108,3 +117,24 @@ your own copy. It is a calculator, not a substitute for the books.
 
 Dungeons & Dragons is a trademark of Wizards of the Coast. This is an unofficial
 personal tool with no affiliation to or endorsement by Wizards of the Coast.
+
+
+## How the spell data was built
+
+The three source books are scanned text. Spell stat blocks extract cleanly and were
+parsed mechanically: 474 of 477 were read straight from the page, with Control Water,
+Delayed Blast Fireball, and Feeblemind transcribed by hand where the scan was past
+recovery.
+
+The class spell lists were a different problem. Xanathar's spell-list appendix and
+Tasha's artificer and "Additional Spells" tables extract one spell per line, so those
+assignments come from the books directly. The Player's Handbook lists are a
+four-column layout that the scan interleaved into unusable text, so those 844
+assignments were encoded by hand and then validated: every name had to resolve to a
+spell parsed from the book, and every per-class count had to match. Both hold.
+
+Spell names damaged by the scan were repaired against the hand-encoded lists, which
+are correct by construction, and the remainder fixed individually.
+
+`data/spells.js` stores spells as compact rows and class lists as indices into them,
+inflated once at load. That keeps the file around 60 KB rather than several hundred.

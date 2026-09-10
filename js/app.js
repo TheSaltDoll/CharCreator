@@ -3,11 +3,10 @@
   var el = DND.UI.el, clear = DND.UI.clear, field = DND.UI.field, select = DND.UI.select;
   var state = DND.Engine.blankState();
   var computed = null;
-
   var mount = {};
 
   function init() {
-    ['identity', 'options', 'abilities', 'race', 'background', 'advancement', 'sheet']
+    ['identity', 'options', 'abilities', 'race', 'background', 'class', 'advancement', 'sheet']
       .forEach(function (k) { mount[k] = document.getElementById('mount-' + k); });
 
     document.getElementById('btn-save').addEventListener('click', saveJson);
@@ -21,7 +20,6 @@
         render();
       }
     });
-
     render();
   }
 
@@ -34,6 +32,7 @@
     renderAbilities();
     renderRace();
     renderBackground();
+    renderClass();
     renderAdvancement();
     renderSheet();
   }
@@ -51,21 +50,10 @@
       renderSheet();
     });
 
-    var levelSel = select({
-      placeholder: false,
-      value: String(state.level),
-      options: Array.apply(null, Array(20)).map(function (_, i) {
-        return { value: String(i + 1), label: 'Level ' + (i + 1) + '  \u00b7  PB ' + DND.formatMod(DND.proficiencyBonus(i + 1)) };
-      }),
-      onchange: function (v) { update(function () { state.level = parseInt(v, 10); }); }
-    });
-
-    box.appendChild(el('div', { class: 'row' }, [
-      field('Character name', nameInput),
-      field('Character level', levelSel,
-        'Proficiency bonus ' + DND.formatMod(computed.proficiencyBonus) +
-        '  \u00b7  ' + computed.xp.toLocaleString() + ' XP')
-    ]));
+    box.appendChild(field('Character name', nameInput,
+      'Level ' + computed.level + ' \u00b7 proficiency bonus ' +
+      DND.formatMod(computed.proficiencyBonus) + ' \u00b7 ' + computed.xp.toLocaleString() +
+      ' XP. Level follows from the classes you take in step 6.'));
   }
 
   /* ============================================================
@@ -76,16 +64,14 @@
     clear(box);
 
     box.appendChild(DND.UI.toggle({
-      label: 'Customizing Your Origin',
-      source: 'TCE 8',
+      label: 'Customizing Your Origin', source: 'TCE 8',
       description: 'Reassign racial ability increases to any scores, swap racial languages, and trade racial proficiencies.',
       checked: state.options.tashaOrigin,
       onchange: function (v) { update(function () { state.options.tashaOrigin = v; }); }
     }));
 
     box.appendChild(DND.UI.toggle({
-      label: 'Customizing a Background',
-      source: 'PHB 125',
+      label: 'Customizing a Background', source: 'PHB 125',
       description: 'Build your own background: any two skills, and any two tools or languages.',
       checked: state.options.customBackground,
       onchange: function (v) {
@@ -97,8 +83,7 @@
     }));
 
     box.appendChild(DND.UI.toggle({
-      label: 'Feats',
-      source: 'PHB 165',
+      label: 'Feats', source: 'PHB 165',
       description: 'Trade an Ability Score Improvement for a feat. Required for Variant Human and Custom Lineage.',
       checked: state.options.featsEnabled,
       onchange: function (v) {
@@ -106,10 +91,34 @@
           state.options.featsEnabled = v;
           if (!v) {
             state.feats = [];
-            Object.keys(state.asiSlots).forEach(function (lv) {
-              if (state.asiSlots[lv].mode === 'feat') state.asiSlots[lv] = { mode: 'asi' };
+            Object.keys(state.asiSlots).forEach(function (k) {
+              if (state.asiSlots[k].mode === 'feat') state.asiSlots[k] = { mode: 'asi' };
             });
           }
+        });
+      }
+    }));
+
+    box.appendChild(DND.UI.toggle({
+      label: 'Multiclassing', source: 'PHB 163',
+      description: 'Take levels in more than one class. Prerequisites are checked, and spell slots combine.',
+      checked: state.options.multiclass,
+      onchange: function (v) {
+        update(function () {
+          state.options.multiclass = v;
+          if (!v) state.classes = state.classes.slice(0, 1);
+        });
+      }
+    }));
+
+    box.appendChild(DND.UI.toggle({
+      label: 'Optional Class Features', source: 'TCE 9',
+      description: 'Extra and replacement class features, such as the ranger\u2019s Deft Explorer and the rogue\u2019s Steady Aim.',
+      checked: state.options.optionalClassFeatures,
+      onchange: function (v) {
+        update(function () {
+          state.options.optionalClassFeatures = v;
+          if (!v) state.classes.forEach(function (c) { c.optionalFeatures = []; });
         });
       }
     }));
@@ -148,13 +157,11 @@
 
   function setMethod(id) {
     state.abilityMethod = id;
-    if (id === 'standardArray') {
-      state.baseScores = { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 };
-    } else if (id === 'pointBuy') {
-      state.baseScores = { str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 };
-    } else if (id === 'roll') {
+    if (id === 'standardArray') state.baseScores = { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 };
+    else if (id === 'pointBuy') state.baseScores = { str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 };
+    else if (id === 'roll') {
       state.rolledPool = [];
-      state.baseScores = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
+      DND.ABILITIES.forEach(function (a) { state.baseScores[a.id] = 10; });
     }
   }
 
@@ -173,11 +180,10 @@
       for (var v = DND.POINT_BUY.min; v <= DND.POINT_BUY.max; v++) {
         opts.push({ value: String(v), label: v + '  (' + DND.POINT_BUY.cost[v] + ' pts)' });
       }
-      var sel = select({
+      grid.appendChild(scoreCell(a, select({
         placeholder: false, value: String(state.baseScores[a.id]), options: opts,
         onchange: function (val) { update(function () { state.baseScores[a.id] = parseInt(val, 10); }); }
-      });
-      grid.appendChild(scoreCell(a, sel));
+      })));
     });
     box.appendChild(grid);
   }
@@ -185,7 +191,7 @@
   function renderArrayAssign(box, array) {
     var used = DND.ABILITIES.map(function (a) { return state.baseScores[a.id]; });
     box.appendChild(el('div', { class: 'budget' }, [
-      el('span', { text: 'Assign 15, 14, 13, 12, 10, 8 \u2014 one value to each ability.' })
+      el('span', { text: 'Assign ' + array.join(', ') + ' \u2014 one value to each ability.' })
     ]));
 
     var grid = el('div', { class: 'score-grid' });
@@ -193,33 +199,22 @@
       var mine = state.baseScores[a.id];
       var counts = {};
       used.forEach(function (v, i) { if (i !== idx) counts[v] = (counts[v] || 0) + 1; });
-      var avail = {};
-      array.forEach(function (v) { avail[v] = (avail[v] || 0) + 1; });
 
-      var opts = array.filter(function (v, i, arr) { return arr.indexOf(v) === i; })
-        .map(function (v) {
-          var taken = counts[v] || 0;
-          var total = array.filter(function (x) { return x === v; }).length;
-          return { value: String(v), label: String(v), disabled: taken >= total && v !== mine };
-        });
+      var seen = {}, opts = [];
+      array.forEach(function (v) {
+        if (seen[v]) return;
+        seen[v] = true;
+        var total = array.filter(function (x) { return x === v; }).length;
+        opts.push({ value: String(v), label: String(v), disabled: (counts[v] || 0) >= total && v !== mine });
+      });
 
-      var sel = select({
+      grid.appendChild(scoreCell(a, select({
         placeholder: false, value: String(mine), options: opts,
         onchange: function (val) { update(function () { state.baseScores[a.id] = parseInt(val, 10); }); }
-      });
-      grid.appendChild(scoreCell(a, sel));
+      })));
     });
     box.appendChild(grid);
-
-    var dupes = used.slice().sort().some(function (v, i, arr) { return i > 0 && arr[i - 1] === v && countIn(array, v) < 2; });
-    if (dupes) {
-      box.appendChild(el('div', { class: 'warnings' }, [
-        el('p', { text: 'Two abilities share a value that appears only once in the array.' })
-      ]));
-    }
   }
-
-  function countIn(arr, v) { return arr.filter(function (x) { return x === v; }).length; }
 
   function renderManual(box) {
     box.appendChild(el('div', { class: 'budget' }, [
@@ -263,9 +258,7 @@
       box.appendChild(el('p', { class: 'field-hint', text: 'Four six-sided dice per score, dropping the lowest. Roll, then assign each result to an ability.' }));
       return;
     }
-
-    var totals = state.rolledPool.map(function (r) { return r.total; });
-    renderArrayAssign(box, totals);
+    renderArrayAssign(box, state.rolledPool.map(function (r) { return r.total; }));
   }
 
   function scoreCell(ability, control) {
@@ -274,12 +267,11 @@
     if (s.racial) bits.push('race ' + DND.formatMod(s.racial));
     if (s.level) bits.push('level ' + DND.formatMod(s.level));
     if (s.feat) bits.push('feat ' + DND.formatMod(s.feat));
+    if (s.classBonus) bits.push('class ' + DND.formatMod(s.classBonus));
     return el('div', { class: 'score-cell' }, [
       el('span', { class: 'field-label', text: ability.name }),
       control,
-      el('div', { class: 'score-breakdown', text: bits.length
-        ? bits.join(' \u00b7 ') + '  =  ' + s.total
-        : '' })
+      el('div', { class: 'score-breakdown', text: bits.length ? bits.join(' \u00b7 ') + '  =  ' + s.total : '' })
     ]);
   }
 
@@ -294,11 +286,9 @@
     DND.RACES.forEach(function (r) {
       var o = { value: r.id, label: r.name };
       if (r.optional) {
-        if (r.id === 'variantHuman' && !state.options.featsEnabled) {
-          o.disabled = true; o.title = 'Turn on the Feats optional rule first.';
-        }
-        if (r.id === 'customLineage' && !state.options.featsEnabled) {
-          o.disabled = true; o.title = 'Turn on the Feats optional rule first.';
+        if (!state.options.featsEnabled) {
+          o.disabled = true;
+          o.label = r.name + ' \u2014 needs the Feats rule';
         }
         optional.push(o);
       } else standard.push(o);
@@ -318,8 +308,7 @@
           state.originAsi = {};
           state.originLanguages = {};
           state.originSwaps = {};
-          var r = DND.findRace(v);
-          state.feats = state.feats.slice(0, DND.Engine.featsOwed(state, r, state.level));
+          state.feats = state.feats.slice(0, DND.Engine.featsOwed(state, DND.findRace(v)));
         });
       }
     })));
@@ -328,10 +317,7 @@
     if (!race) return;
 
     var nested = el('div', { class: 'nested' });
-
-    if (race.optionalNote) {
-      nested.appendChild(el('p', { class: 'field-hint', text: race.optionalNote }));
-    }
+    if (race.optionalNote) nested.appendChild(el('p', { class: 'field-hint', text: race.optionalNote }));
 
     if (race.subraces && race.subraces.length) {
       nested.appendChild(field('Subrace', select({
@@ -371,27 +357,26 @@
   function renderRacialAsi(box, race) {
     var incs = computed.racialAsi.increases;
     if (!incs.length) return;
-
     var tasha = state.options.tashaOrigin && !race.noOriginCustomization;
+
     var wrap = el('div', {});
     wrap.appendChild(el('span', { class: 'field-label', text: 'Ability score increases' }));
 
     if (!tasha) {
-      var fixedBits = [];
-      incs.forEach(function (inc, i) {
-        if (inc.fixed) fixedBits.push(DND.formatMod(inc.amount) + ' ' + DND.UI.abbr(inc.fixed));
-      });
+      var fixedBits = incs.filter(function (i) { return i.fixed; })
+        .map(function (i) { return DND.formatMod(i.amount) + ' ' + DND.UI.abbr(i.fixed); });
       if (fixedBits.length) wrap.appendChild(el('p', { class: 'field-hint', text: fixedBits.join('  \u00b7  ') }));
+    } else {
+      wrap.appendChild(el('p', { class: 'field-hint', text: 'Each increase must go to a different ability.' }));
     }
 
-    var row = el('div', { class: 'row' });
     var chosen = [];
     incs.forEach(function (inc, i) {
-      var key = tasha ? null : '__asi' + i;
-      var current = tasha ? (state.originAsi[i] || '') : (inc.fixed || state.raceChoices[key] || '');
-      if (current) chosen.push(current);
+      var cur = tasha ? (state.originAsi[i] || '') : (inc.fixed || state.raceChoices['__asi' + i] || '');
+      if (cur) chosen.push(cur);
     });
 
+    var row = el('div', { class: 'row' });
     incs.forEach(function (inc, i) {
       if (!tasha && inc.fixed) return;
       var current = tasha ? (state.originAsi[i] || '') : (state.raceChoices['__asi' + i] || '');
@@ -411,26 +396,18 @@
       })));
     });
 
-    if (tasha) {
-      wrap.appendChild(el('p', { class: 'field-hint', text: 'Each increase must go to a different ability.' }));
-    }
-
-    if (row.children.length) { wrap.appendChild(row); box.appendChild(wrap); }
-    else if (!tasha) box.appendChild(wrap);
+    if (row.children.length) wrap.appendChild(row);
+    box.appendChild(wrap);
   }
 
   function renderRaceChoices(box, race) {
-    var defs = DND.Engine.collectRaceChoices(race, computed.subrace);
-    defs.forEach(function (c) {
-      if (c.showIf) {
-        var dep = state.raceChoices[c.showIf.choice];
-        if (dep !== c.showIf.equals) return;
-      }
+    DND.Engine.collectRaceChoices(race, computed.subrace).forEach(function (c) {
+      if (c.showIf && state.raceChoices[c.showIf.choice] !== c.showIf.equals) return;
+
       var options;
       if (c.type === 'skill') {
-        options = c.from === 'all' ? DND.UI.skillOptions() : DND.UI.skillOptions().filter(function (o) {
-          return c.from.indexOf(o.value) !== -1;
-        });
+        options = c.from === 'all' ? DND.UI.skillOptions()
+          : DND.UI.skillOptions().filter(function (o) { return c.from.indexOf(o.value) !== -1; });
       } else if (c.type === 'tool') {
         options = DND.UI.toolOptions(c.from);
       } else if (c.type === 'ancestry') {
@@ -500,7 +477,6 @@
     wrap.appendChild(el('span', { class: 'field-label', text: 'Swap racial languages and proficiencies' }));
     wrap.appendChild(el('p', { class: 'field-hint', text: 'Skills swap for skills. Armor and martial weapons swap for any weapon or tool. Simple weapons and tools swap for a simple weapon or tool.' }));
 
-    /* languages */
     var fixedLangs = [];
     [race, computed.subrace].forEach(function (src) {
       if (src && src.languages && src.languages.fixed) {
@@ -519,8 +495,6 @@
     });
     if (row.children.length) wrap.appendChild(row);
 
-    /* proficiencies. The swap rules key off what the proficiency originally was,
-       so classify by the pre-swap value rather than the bucket it now sits in. */
     var swappable = [], seenSwap = {};
     function collect(list) {
       list.forEach(function (entry) {
@@ -542,9 +516,8 @@
     var prow = el('div', { class: 'row' });
     swappable.forEach(function (item) {
       var options;
-      if (item.kind === 'skill') {
-        options = DND.UI.skillOptions();
-      } else if (item.kind === 'armor' || item.kind === 'weapon') {
+      if (item.kind === 'skill') options = DND.UI.skillOptions();
+      else if (item.kind === 'armor' || item.kind === 'weapon') {
         options = [
           { group: 'Simple weapons', options: DND.SIMPLE_WEAPONS.map(DND.UI.strOpt) },
           { group: 'Martial weapons', options: DND.MARTIAL_WEAPONS.map(DND.UI.strOpt) }
@@ -572,15 +545,14 @@
     var box = mount.background;
     clear(box);
 
-    var opts = DND.BACKGROUNDS.map(function (b) { return { value: b.id, label: b.name }; });
-    var groups = [{ group: "Player's Handbook", options: opts }];
+    var groups = [{ group: "Player's Handbook",
+      options: DND.BACKGROUNDS.map(function (b) { return { value: b.id, label: b.name }; }) }];
     if (state.options.customBackground) {
       groups.push({ group: 'Optional', options: [{ value: 'custom', label: 'Custom background' }] });
     }
 
     box.appendChild(field('Background', select({
-      value: state.backgroundId,
-      options: groups,
+      value: state.backgroundId, options: groups,
       onchange: function (v) {
         update(function () {
           state.backgroundId = v;
@@ -596,7 +568,6 @@
     if (!bg) return;
 
     var nested = el('div', { class: 'nested' });
-
     if (bg.id === 'custom') {
       renderCustomBackground(nested);
       box.appendChild(nested);
@@ -605,8 +576,7 @@
 
     if (bg.variants && bg.variants.length) {
       nested.appendChild(field('Variant', select({
-        placeholder: 'Standard',
-        value: state.backgroundVariantId,
+        placeholder: 'Standard', value: state.backgroundVariantId,
         options: bg.variants.map(function (v) { return { value: v.id, label: v.name }; }),
         onchange: function (v) { update(function () { state.backgroundVariantId = v; }); }
       })));
@@ -637,18 +607,12 @@
     }
 
     var list = el('ul', { class: 'trait-list' });
-    list.appendChild(el('li', {}, [
-      el('strong', { text: 'Skills. ' }),
-      el('span', { text: bg.skills.map(DND.Engine.prettyName).join(', ') })
-    ]));
-    list.appendChild(el('li', {}, [
-      el('strong', { text: bg.feature.name + '. ' }),
-      el('span', { text: bg.feature.text })
-    ]));
-    list.appendChild(el('li', {}, [
-      el('strong', { text: 'Equipment. ' }),
-      el('span', { text: bg.equipment })
-    ]));
+    list.appendChild(el('li', {}, [el('strong', { text: 'Skills. ' }),
+      el('span', { text: bg.skills.map(DND.Engine.prettyName).join(', ') })]));
+    list.appendChild(el('li', {}, [el('strong', { text: bg.feature.name + '. ' }),
+      el('span', { text: bg.feature.text })]));
+    list.appendChild(el('li', {}, [el('strong', { text: 'Equipment. ' }),
+      el('span', { text: bg.equipment })]));
     nested.appendChild(list);
 
     box.appendChild(nested);
@@ -660,10 +624,9 @@
     var row = el('div', { class: 'row' });
     for (var i = 0; i < 2; i++) {
       (function (idx) {
-        var cur = state.customBackgroundSkills[idx] || '';
         var other = state.customBackgroundSkills[1 - idx];
         row.appendChild(field('Skill ' + (idx + 1), select({
-          value: cur,
+          value: state.customBackgroundSkills[idx] || '',
           options: DND.UI.skillOptions(other ? [other] : []),
           onchange: function (v) { update(function () { state.customBackgroundSkills[idx] = v; }); }
         })));
@@ -674,11 +637,10 @@
     var row2 = el('div', { class: 'row' });
     for (var j = 0; j < 2; j++) {
       (function (idx) {
-        var cur = state.customBackgroundExtras[idx] || '';
         var langs = DND.LANGUAGES.filter(function (l) { return l.type !== 'secret'; })
           .map(function (l) { return { value: 'lang:' + l.id, label: l.name }; });
         row2.appendChild(field('Tool or language ' + (idx + 1), select({
-          value: cur,
+          value: state.customBackgroundExtras[idx] || '',
           options: DND.UI.toolOptions('all').concat([{ group: 'Languages', options: langs }]),
           onchange: function (v) { update(function () { state.customBackgroundExtras[idx] = v; }); }
         })));
@@ -688,64 +650,530 @@
   }
 
   /* ============================================================
-     6. Advancement — ASIs and feats
+     6. Class and level
+     ============================================================ */
+  function renderClass() {
+    var box = mount.class;
+    clear(box);
+
+    state.classes.forEach(function (entry, idx) {
+      box.appendChild(renderClassEntry(entry, idx));
+    });
+
+    if (state.options.multiclass && state.classes.length < 4 && computed.level < 20) {
+      box.appendChild(el('button', {
+        class: 'btn', type: 'button', text: 'Add another class',
+        onclick: function () {
+          update(function () {
+            state.classes.push({ classId: '', level: 1, skills: [], tools: {}, expertise: [], choices: {}, optionalFeatures: [] });
+          });
+        }
+      }));
+    }
+
+    renderHitPoints(box);
+  }
+
+  function renderClassEntry(entry, idx) {
+    var wrap = el('div', { class: 'class-block' });
+    var isFirst = idx === 0;
+
+    var head = el('div', { class: 'class-head' }, [
+      el('span', { class: 'field-label', text: isFirst ? 'Class' : 'Additional class' })
+    ]);
+    if (!isFirst) {
+      head.appendChild(el('button', {
+        class: 'btn-quiet', type: 'button', text: 'Remove',
+        onclick: function () {
+          update(function () {
+            var removed = state.classes.splice(idx, 1)[0];
+            Object.keys(state.asiSlots).forEach(function (k) {
+              if (k.indexOf(removed.classId + ':') === 0) delete state.asiSlots[k];
+            });
+          });
+        }
+      }));
+    }
+    wrap.appendChild(head);
+
+    var takenIds = state.classes.map(function (c, i) { return i === idx ? null : c.classId; }).filter(Boolean);
+    var options = DND.CLASSES.map(function (cls) {
+      var o = { value: cls.id, label: cls.name };
+      if (takenIds.indexOf(cls.id) !== -1) { o.disabled = true; o.label = cls.name + ' \u2014 already taken'; }
+      else if (!isFirst) {
+        var chk = DND.Engine.multiclassCheck(cls, computed, false);
+        if (!chk.ok) { o.disabled = true; o.label = cls.name + ' \u2014 needs ' + chk.reasons.join(', '); }
+      }
+      return o;
+    });
+
+    var maxLevel = 20 - (computed.level - (parseInt(entry.level, 10) || 0));
+    var levelOpts = [];
+    for (var i = 1; i <= Math.max(1, maxLevel); i++) levelOpts.push({ value: String(i), label: 'Level ' + i });
+
+    var row = el('div', { class: 'row' });
+    row.appendChild(field('Class', select({
+      value: entry.classId, options: options,
+      onchange: function (v) {
+        update(function () {
+          Object.keys(state.asiSlots).forEach(function (k) {
+            if (k.indexOf(entry.classId + ':') === 0) delete state.asiSlots[k];
+          });
+          entry.classId = v;
+          entry.skills = []; entry.tools = {}; entry.expertise = [];
+          entry.choices = {}; entry.optionalFeatures = [];
+        });
+      }
+    })));
+    row.appendChild(field('Levels in this class', select({
+      placeholder: false, value: String(entry.level), options: levelOpts,
+      onchange: function (v) { update(function () { entry.level = parseInt(v, 10); }); }
+    })));
+    wrap.appendChild(row);
+
+    var cls = DND.findClass(entry.classId);
+    if (!cls) return wrap;
+
+    var info = computed.classes.filter(function (c) { return c.id === cls.id; })[0];
+    var nested = el('div', { class: 'nested' });
+
+    /* headline facts */
+    nested.appendChild(el('p', { class: 'field-hint',
+      text: 'Hit die d' + cls.hitDie +
+        (isFirst ? '  \u00b7  Saving throws: ' + cls.saves.map(DND.UI.abbr).join(' and ') : '  \u00b7  Multiclass: no saving throw proficiencies') +
+        (cls.subclass ? '  \u00b7  ' + cls.subclass.label + ' at level ' + cls.subclass.level : '') }));
+
+    /* class table columns */
+    if (info && info.columns.length) {
+      var tbl = el('div', { class: 'class-table' });
+      info.columns.forEach(function (col) {
+        tbl.appendChild(el('div', { class: 'class-stat' }, [
+          el('span', { class: 'cs-label', text: col.label }),
+          el('span', { class: 'cs-value', text: String(col.value) })
+        ]));
+      });
+      nested.appendChild(tbl);
+    }
+
+    renderClassSkills(nested, cls, entry, isFirst);
+    renderClassTools(nested, cls, entry, isFirst);
+    renderClassExpertise(nested, cls, entry);
+    renderFeatureChoices(nested, cls, entry);
+    if (state.options.optionalClassFeatures) renderOptionalFeatures(nested, cls, entry);
+    renderFeatureList(nested, cls, entry, info);
+
+    wrap.appendChild(nested);
+    return wrap;
+  }
+
+  function renderClassSkills(box, cls, entry, isFirst) {
+    var def = isFirst ? cls.skills : (cls.multiclass && cls.multiclass.skills);
+    if (!def) return;
+
+    var pool = def.from === 'all' ? DND.SKILLS.map(function (s) { return s.id; }) : def.from;
+    var elsewhere = computed.skills.filter(function (s) {
+      return s.prof && (entry.skills || []).indexOf(s.id) === -1;
+    }).map(function (s) { return s.id; });
+
+    var row = el('div', { class: 'row' });
+    for (var i = 0; i < def.count; i++) {
+      (function (idx) {
+        var cur = (entry.skills || [])[idx] || '';
+        var others = (entry.skills || []).filter(function (v, j) { return j !== idx && v; });
+        var opts = DND.SKILLS.filter(function (s) { return pool.indexOf(s.id) !== -1; })
+          .map(function (s) {
+            var clash = others.indexOf(s.id) !== -1 || elsewhere.indexOf(s.id) !== -1;
+            return {
+              value: s.id,
+              label: s.name + (clash && s.id !== cur ? ' \u2014 already proficient' : ''),
+              disabled: clash && s.id !== cur
+            };
+          });
+        row.appendChild(field('Skill ' + (idx + 1), select({
+          value: cur, options: opts,
+          onchange: function (v) {
+            update(function () {
+              entry.skills = entry.skills || [];
+              entry.skills[idx] = v;
+            });
+          }
+        })));
+      })(i);
+    }
+    box.appendChild(row);
+  }
+
+  function renderClassTools(box, cls, entry, isFirst) {
+    var defs = (isFirst ? cls.toolChoices : (cls.multiclass && cls.multiclass.toolChoices)) || [];
+    if (cls.tools && cls.tools.length && isFirst) {
+      box.appendChild(el('p', { class: 'field-hint', text: 'Tool proficiencies: ' + cls.tools.join(', ') }));
+    }
+    defs.forEach(function (def) {
+      var row = el('div', { class: 'row' });
+      for (var i = 0; i < def.count; i++) {
+        (function (idx) {
+          var key = def.id + '_' + idx;
+          var from = def.from === 'artisanOrInstrument'
+            ? DND.TOOLS.artisan.items.concat(DND.TOOLS.instrument.items)
+            : def.from;
+          box.appendChild(field(def.label + (def.count > 1 ? ' ' + (idx + 1) : ''), select({
+            value: (entry.tools || {})[key] || '',
+            options: DND.UI.toolOptions(from),
+            onchange: function (v) {
+              update(function () {
+                entry.tools = entry.tools || {};
+                entry.tools[key] = v;
+              });
+            }
+          })));
+        })(i);
+      }
+      if (row.children.length) box.appendChild(row);
+    });
+  }
+
+  function renderClassExpertise(box, cls, entry) {
+    var slots = DND.Engine.expertiseSlots(cls, Math.max(1, parseInt(entry.level, 10) || 1));
+    if (!slots.length) return;
+
+    var proficient = computed.skills.filter(function (s) { return s.prof; });
+    var row = el('div', { class: 'row' });
+
+    slots.forEach(function (slot, si) {
+      for (var i = 0; i < slot.count; i++) {
+        (function (flat) {
+          var cur = (entry.expertise || [])[flat] || '';
+          var others = (entry.expertise || []).filter(function (v, j) { return j !== flat && v; });
+          var opts = proficient.map(function (s) {
+            return { value: s.id, label: s.name, disabled: others.indexOf(s.id) !== -1 };
+          });
+          if (slot.allowThievesTools) opts.push({ value: "Thieves' tools", label: "Thieves' tools" });
+          row.appendChild(field('Expertise ' + (flat + 1), select({
+            value: cur, options: opts,
+            onchange: function (v) {
+              update(function () {
+                entry.expertise = entry.expertise || [];
+                entry.expertise[flat] = v;
+              });
+            }
+          }), proficient.length ? null : 'Pick your skill proficiencies first.'));
+        })(si * 2 + i);
+      }
+    });
+    box.appendChild(row);
+  }
+
+  /* Fighting styles, metamagic, invocations, infusions, pact boons, ranger picks. */
+  function renderFeatureChoices(box, cls, entry) {
+    var ce = { cls: cls, entry: entry, level: Math.max(1, parseInt(entry.level, 10) || 1) };
+    DND.Engine.featureChoices(ce).forEach(function (fc) {
+      var def = fc.def, count = fc.count;
+      if (!count) return;
+
+      var opts = optionsForChoice(def, cls, entry, ce.level);
+      if (count === 1) {
+        box.appendChild(field(def.label, select({
+          value: normalizeSingle(entry.choices[def.id]),
+          options: opts.map(function (o) { return o; }),
+          onchange: function (v) {
+            update(function () {
+              entry.choices[def.id] = v;
+              delete entry.choices[def.id + 'Maneuver'];
+            });
+          }
+        }), noteForChoice(def, entry.choices[def.id])));
+        renderGrantedManeuver(box, def, entry);
+        return;
+      }
+
+      var chosen = Array.isArray(entry.choices[def.id]) ? entry.choices[def.id].slice() : [];
+      var wrap = el('div', { class: 'pick-list' });
+      wrap.appendChild(el('span', { class: 'field-label', text: def.label + ' \u2014 ' + count + ' known' }));
+
+      for (var i = 0; i < count; i++) {
+        (function (idx) {
+          var cur = chosen[idx] || '';
+          var others = chosen.filter(function (v, j) { return j !== idx && v; });
+          var list = opts.map(function (o) {
+            if (o.group) return o;
+            var repeatable = o.repeatable;
+            return {
+              value: o.value, label: o.label,
+              disabled: o.disabled || (!repeatable && others.indexOf(o.value) !== -1 && o.value !== cur)
+            };
+          });
+          wrap.appendChild(field(String(idx + 1), select({
+            value: cur, options: list,
+            onchange: function (v) {
+              update(function () {
+                var arr = Array.isArray(entry.choices[def.id]) ? entry.choices[def.id].slice() : [];
+                arr[idx] = v;
+                entry.choices[def.id] = arr;
+              });
+            }
+          }), noteForChoice(def, cur)));
+        })(i);
+      }
+      box.appendChild(wrap);
+    });
+  }
+
+  function normalizeSingle(v) { return Array.isArray(v) ? (v[0] || '') : (v || ''); }
+
+  /* Superior Technique hands you a maneuver along with the fighting style. */
+  function renderGrantedManeuver(box, def, entry) {
+    if (def.type !== 'fightingStyle') return;
+    var style = DND.findOption(DND.FIGHTING_STYLES, normalizeSingle(entry.choices[def.id]));
+    if (!style || !style.grantsManeuvers) return;
+    var key = def.id + 'Maneuver';
+    box.appendChild(field('Maneuver', select({
+      value: entry.choices[key] || '',
+      options: DND.MANEUVERS
+        .filter(function (m) { return state.options.optionalClassFeatures || !m.optional; })
+        .map(function (m) { return { value: m.id, label: m.name }; }),
+      onchange: function (v) { update(function () { entry.choices[key] = v; }); }
+    }), 'One superiority die (d6), regained on a short rest.'));
+  }
+
+  function optionsForChoice(def, cls, entry, classLevel) {
+    var showOptional = state.options.optionalClassFeatures;
+
+    if (def.type === 'fightingStyle') {
+      return DND.FIGHTING_STYLES
+        .filter(function (s) { return s.classes.indexOf(cls.id) !== -1; })
+        .filter(function (s) { return showOptional || !s.optional; })
+        .map(function (s) { return { value: s.id, label: s.name }; });
+    }
+    if (def.type === 'metamagic') {
+      return DND.METAMAGIC
+        .filter(function (m) { return showOptional || !m.optional; })
+        .map(function (m) { return { value: m.id, label: m.name }; });
+    }
+    if (def.type === 'pactBoon') {
+      return DND.PACT_BOONS
+        .filter(function (b) { return showOptional || !b.optional; })
+        .map(function (b) { return { value: b.id, label: b.name }; });
+    }
+    if (def.type === 'invocation') {
+      var boon = normalizeSingle(entry.choices.pactBoon);
+      return DND.INVOCATIONS
+        .filter(function (inv) { return showOptional || !inv.optional; })
+        .map(function (inv) {
+          var blocked = [];
+          if (inv.level && classLevel < inv.level) blocked.push('level ' + inv.level);
+          if (inv.boon && inv.boon !== boon) {
+            var b = DND.findOption(DND.PACT_BOONS, inv.boon);
+            blocked.push(b ? b.name : inv.boon);
+          }
+          return {
+            value: inv.id,
+            label: inv.name + (blocked.length ? ' \u2014 needs ' + blocked.join(', ') : (inv.needs ? ' \u2020' : '')),
+            disabled: blocked.length > 0,
+            title: inv.needs ? 'Requires ' + inv.needs : null
+          };
+        });
+    }
+    if (def.type === 'infusion') {
+      return DND.INFUSIONS.map(function (inf) {
+        var blocked = inf.level && classLevel < inf.level;
+        return {
+          value: inf.id,
+          label: inf.name + (blocked ? ' \u2014 needs level ' + inf.level : ''),
+          disabled: blocked, repeatable: !!inf.repeatable
+        };
+      });
+    }
+    if (def.type === 'maneuver') {
+      return DND.MANEUVERS
+        .filter(function (m) { return showOptional || !m.optional; })
+        .map(function (m) { return { value: m.id, label: m.name }; });
+    }
+    if (def.type === 'favoredEnemy') return DND.FAVORED_ENEMIES.map(DND.UI.strOpt);
+    if (def.type === 'terrain') return DND.FAVORED_TERRAINS.map(DND.UI.strOpt);
+    if (def.type === 'proficientSkill') {
+      return computed.skills.filter(function (s) { return s.prof; })
+        .map(function (s) { return { value: s.id, label: s.name }; });
+    }
+    if (def.type === 'skill') {
+      var pool = def.from === 'all' ? DND.SKILLS.map(function (s) { return s.id; }) : def.from;
+      return DND.SKILLS.filter(function (s) { return pool.indexOf(s.id) !== -1; })
+        .map(function (s) { return { value: s.id, label: s.name }; });
+    }
+    return (def.from || []).map(DND.UI.strOpt);
+  }
+
+  function noteForChoice(def, value) {
+    if (!value) return null;
+    var lists = {
+      fightingStyle: DND.FIGHTING_STYLES, metamagic: DND.METAMAGIC,
+      invocation: DND.INVOCATIONS, infusion: DND.INFUSIONS,
+      pactBoon: DND.PACT_BOONS
+    };
+    var list = lists[def.type];
+    if (!list) return null;
+    var found = DND.findOption(list, value);
+    return found && found.note ? found.note : null;
+  }
+
+  function renderOptionalFeatures(box, cls, entry) {
+    var available = DND.optionalFeaturesFor(cls.id, Math.max(1, parseInt(entry.level, 10) || 1));
+    if (!available.length) return;
+
+    var wrap = el('div', { class: 'optional-block' });
+    wrap.appendChild(el('span', { class: 'field-label', text: 'Optional class features' }));
+    available.forEach(function (opt) {
+      wrap.appendChild(DND.UI.toggle({
+        label: opt.name, source: opt.source,
+        description: opt.note + (opt.replaces ? ' Replaces ' + opt.replaces + '.' : ''),
+        checked: (entry.optionalFeatures || []).indexOf(opt.name) !== -1,
+        onchange: function (v) {
+          update(function () {
+            entry.optionalFeatures = entry.optionalFeatures || [];
+            var i = entry.optionalFeatures.indexOf(opt.name);
+            if (v && i === -1) entry.optionalFeatures.push(opt.name);
+            if (!v && i !== -1) entry.optionalFeatures.splice(i, 1);
+          });
+        }
+      }));
+    });
+    box.appendChild(wrap);
+  }
+
+  function renderFeatureList(box, cls, entry, info) {
+    if (!info || !info.features.length) return;
+    var list = el('ul', { class: 'trait-list' });
+
+    info.features.forEach(function (f) {
+      list.appendChild(el('li', {}, [
+        el('span', { class: 'feat-level', text: String(f.level) }),
+        el('strong', { text: f.name + '. ' }),
+        el('span', { text: f.text })
+      ]));
+    });
+
+    (info.optionalFeatures || []).forEach(function (f) {
+      list.appendChild(el('li', {}, [
+        el('span', { class: 'feat-level', text: String(f.level) }),
+        el('strong', { text: f.name + '. ' }),
+        el('span', { text: f.note }),
+        el('em', { class: 'source-tag', text: f.source })
+      ]));
+    });
+
+    box.appendChild(list);
+
+    if (info.subclassDue) {
+      box.appendChild(el('p', { class: 'field-hint subclass-note',
+        text: 'Your ' + info.subclassLabel + ' is due at level ' + info.subclassLevel +
+          '. Archetype lists arrive in the next build — choose yours from the book for now.' }));
+    }
+  }
+
+  function renderHitPoints(box) {
+    if (!computed.classes.length) return;
+
+    var wrap = el('div', { class: 'hp-block' });
+    wrap.appendChild(el('span', { class: 'field-label', text: 'Hit points' }));
+
+    var bar = el('div', { class: 'method-bar' });
+    [{ id: 'average', label: 'Fixed average' }, { id: 'roll', label: 'Roll each level' }, { id: 'manual', label: 'Enter total' }]
+      .forEach(function (m) {
+        bar.appendChild(el('button', {
+          type: 'button', text: m.label,
+          'aria-pressed': state.hpMethod === m.id ? 'true' : 'false',
+          onclick: function () { update(function () { state.hpMethod = m.id; }); }
+        }));
+      });
+    wrap.appendChild(bar);
+
+    if (state.hpMethod === 'manual') {
+      var input = el('input', { type: 'number', min: '1', max: '999',
+        value: state.hpManual === null ? '' : String(state.hpManual), placeholder: 'Total hit points' });
+      input.addEventListener('change', function () {
+        update(function () { state.hpManual = parseInt(input.value, 10) || null; });
+      });
+      wrap.appendChild(input);
+    } else if (state.hpMethod === 'roll') {
+      var rollBar = el('div', { class: 'pool' });
+      rollBar.appendChild(el('button', {
+        class: 'btn', type: 'button', text: 'Roll hit dice',
+        onclick: function () {
+          update(function () {
+            state.hpRolls = {};
+            var first = true;
+            computed.classes.forEach(function (ci) {
+              for (var i = 1; i <= ci.level; i++) {
+                if (first) { first = false; continue; }
+                state.hpRolls[ci.id + ':' + i] = 1 + Math.floor(Math.random() * ci.hitDie);
+              }
+            });
+          });
+        }
+      }));
+      Object.keys(state.hpRolls).forEach(function (k) {
+        rollBar.appendChild(el('span', { class: 'pool-die', text: String(state.hpRolls[k]), title: k }));
+      });
+      wrap.appendChild(rollBar);
+      wrap.appendChild(el('p', { class: 'field-hint', text: 'Your first level always takes the full hit die. Unrolled levels fall back to the average.' }));
+    } else {
+      wrap.appendChild(el('p', { class: 'field-hint', text: computed.hp.note +
+        ' Constitution contributes ' + DND.formatMod(computed.hp.conPerLevel || 0) + ' per level.' }));
+    }
+
+    box.appendChild(wrap);
+  }
+
+  /* ============================================================
+     7. Advancement
      ============================================================ */
   function renderAdvancement() {
     var box = mount.advancement;
     clear(box);
 
-    var levels = computed.asiLevels;
-
-    box.appendChild(el('p', { class: 'field-hint', text: levels.length
-      ? 'Most classes grant an Ability Score Improvement at levels 4, 8, 12, 16, and 19. Fighters and rogues gain extra ones; those arrive with the class module.'
-      : 'No Ability Score Improvements yet \u2014 the first arrives at level 4.' }));
-
-    levels.forEach(function (lv) {
-      box.appendChild(renderAsiSlot(lv));
-    });
-
-    /* race-granted feats */
-    var race = computed.race;
-    if (race && race.grantsFeat) {
-      for (var i = 0; i < race.grantsFeat; i++) {
-        box.appendChild(renderFeatSlot(i, race.name + ' feat'));
-      }
+    var slots = computed.asiSlots;
+    if (!slots.length) {
+      box.appendChild(el('p', { class: 'field-hint', text: 'No Ability Score Improvements yet. Most classes grant the first at level 4; fighters gain extras at 6 and 14, rogues at 10.' }));
+    } else {
+      box.appendChild(el('p', { class: 'field-hint', text: 'Improvements are counted per class, at the levels that class grants them.' }));
+      slots.forEach(function (k) { box.appendChild(renderAsiSlot(k)); });
     }
 
-    /* feats taken in place of ASIs */
-    var offset = race && race.grantsFeat ? race.grantsFeat : 0;
-    var n = offset;
-    levels.forEach(function (lv) {
-      var slot = state.asiSlots[lv];
+    var race = computed.race;
+    var n = 0;
+    if (race && race.grantsFeat) {
+      for (var i = 0; i < race.grantsFeat; i++) {
+        box.appendChild(renderFeatSlot(n, race.name + ' feat'));
+        n++;
+      }
+    }
+    slots.forEach(function (k) {
+      var slot = state.asiSlots[k.key];
       if (slot && slot.mode === 'feat') {
-        box.appendChild(renderFeatSlot(n, 'Level ' + lv + ' feat'));
+        box.appendChild(renderFeatSlot(n, k.className + ' level ' + k.level + ' feat'));
         n++;
       }
     });
   }
 
-  function renderAsiSlot(lv) {
-    var slot = state.asiSlots[lv] || {};
+  function renderAsiSlot(k) {
+    var slot = state.asiSlots[k.key] || {};
     var wrap = el('div', { class: 'asi-slot' });
 
-    var head = el('div', { class: 'asi-slot-head' }, [
-      el('span', { class: 'lvl', text: 'Level ' + lv }),
+    wrap.appendChild(el('div', { class: 'asi-slot-head' }, [
+      el('span', { class: 'lvl', text: k.className + ' \u00b7 level ' + k.level }),
       el('h4', { text: 'Ability Score Improvement' })
-    ]);
-    wrap.appendChild(head);
+    ]));
 
     var modeOpts = [{ value: 'asi', label: 'Increase ability scores' }];
     if (state.options.featsEnabled) modeOpts.push({ value: 'feat', label: 'Take a feat instead' });
 
     wrap.appendChild(field('Choose', select({
-      value: slot.mode || '',
-      options: modeOpts,
+      value: slot.mode || '', options: modeOpts,
       onchange: function (v) {
         update(function () {
-          state.asiSlots[lv] = { mode: v };
+          state.asiSlots[k.key] = { mode: v };
           if (v === 'asi') {
-            var owed = DND.Engine.featsOwed(state, computed.race, state.level);
-            state.feats = state.feats.slice(0, owed);
+            state.feats = state.feats.slice(0, DND.Engine.featsOwed(state, computed.race));
           }
         });
       }
@@ -755,12 +1183,11 @@
       var row = el('div', { class: 'row' });
       ['a', 'b'].forEach(function (key) {
         row.appendChild(field(key === 'a' ? 'First +1' : 'Second +1', select({
-          value: slot[key] || '',
-          options: DND.UI.abilityOptions(),
+          value: slot[key] || '', options: DND.UI.abilityOptions(),
           onchange: function (v) {
             update(function () {
-              state.asiSlots[lv] = state.asiSlots[lv] || { mode: 'asi' };
-              state.asiSlots[lv][key] = v;
+              state.asiSlots[k.key] = state.asiSlots[k.key] || { mode: 'asi' };
+              state.asiSlots[k.key][key] = v;
             });
           }
         })));
@@ -775,7 +1202,6 @@
   function renderFeatSlot(index, label) {
     var taken = state.feats[index] || {};
     var wrap = el('div', { class: 'feat-slot' });
-
     wrap.appendChild(el('div', { class: 'feat-slot-head' }, [
       el('span', { class: 'field-label', text: label })
     ]));
@@ -785,7 +1211,7 @@
 
     var groups = { PHB: [], TCE: [], XGE: [] };
     DND.FEATS.forEach(function (feat) {
-      var check = DND.Engine.meetsPrereq(feat, computed, state);
+      var check = DND.Engine.meetsPrereq(feat, computed);
       var dup = otherIds.indexOf(feat.id) !== -1 && !feat.repeatable;
       var o = { value: feat.id, label: feat.name };
       if (!check.ok) {
@@ -794,7 +1220,7 @@
       } else if (dup) {
         o.disabled = true;
         o.label = feat.name + ' \u2014 already taken';
-      } else if (check.unverified && check.unverified.length) {
+      } else if (check.unverified.length) {
         o.label = feat.name + ' \u2020';
         o.title = check.unverified.join('; ');
       }
@@ -824,17 +1250,16 @@
       el('em', { class: 'source-tag', text: feat.source })
     ]));
 
-    var check = DND.Engine.meetsPrereq(feat, computed, state);
-    if (check.unverified && check.unverified.length) {
-      wrap.appendChild(el('p', { class: 'feat-note warn', text: '\u2020 ' + check.unverified.join('; ') + '. Verify once you pick a class.' }));
+    var check = DND.Engine.meetsPrereq(feat, computed);
+    if (check.unverified.length) {
+      wrap.appendChild(el('p', { class: 'feat-note warn', text: '\u2020 ' + check.unverified.join('; ') + '.' }));
     }
 
     var body = el('div', { class: 'row' });
 
     if (feat.asi && feat.asi.choose) {
       body.appendChild(field('Ability increase', select({
-        value: taken.asi || '',
-        options: DND.UI.abilityOptions(feat.asi.choose),
+        value: taken.asi || '', options: DND.UI.abilityOptions(feat.asi.choose),
         onchange: function (v) { update(function () { state.feats[index].asi = v; }); }
       })));
     }
@@ -844,8 +1269,7 @@
         ? DND.UI.skillOptions().filter(function (o) { return c.from === 'all' || c.from.indexOf(o.value) !== -1; })
         : c.from.map(DND.UI.strOpt);
       body.appendChild(field(c.label, select({
-        value: (taken.choices && taken.choices[c.id]) || '',
-        options: options,
+        value: (taken.choices && taken.choices[c.id]) || '', options: options,
         onchange: function (v) {
           update(function () {
             state.feats[index].choices = state.feats[index].choices || {};
@@ -857,8 +1281,7 @@
 
     (feat.toolChoices || []).forEach(function (c) {
       body.appendChild(field(c.label, select({
-        value: (taken.choices && taken.choices[c.id]) || '',
-        options: DND.UI.toolOptions(c.from),
+        value: (taken.choices && taken.choices[c.id]) || '', options: DND.UI.toolOptions(c.from),
         onchange: function (v) {
           update(function () {
             state.feats[index].choices = state.feats[index].choices || {};
@@ -967,22 +1390,22 @@
     clear(box);
     var c = computed;
 
-    /* name + line */
     var descBits = [];
     if (c.race) descBits.push(c.subrace ? c.subrace.name : c.race.name);
+    if (c.classes.length) {
+      descBits.push(c.classes.map(function (ci) { return ci.name + ' ' + ci.level; }).join(' / '));
+    }
     if (c.background) descBits.push(c.background.name);
-    descBits.push('Level ' + c.level);
 
     box.appendChild(el('div', { class: 'sheet-name' }, [
       el('h3', { text: c.name || 'Unnamed adventurer' }),
-      el('p', { text: descBits.join('  \u00b7  ') })
+      el('p', { text: descBits.length ? descBits.join('  \u00b7  ') : 'Level ' + c.level })
     ]));
 
-    /* the anchor */
     var block = el('div', { class: 'ability-block' });
     DND.ABILITIES.forEach(function (a) {
       var s = c.scores[a.id];
-      var boosted = (s.racial + s.feat + s.level) > 0;
+      var boosted = (s.racial + s.feat + s.level + s.classBonus) > 0;
       block.appendChild(el('div', { class: 'ability-cell' + (boosted ? ' boosted' : '') }, [
         el('span', { class: 'abbr', text: a.abbr }),
         el('span', { class: 'score', text: String(s.total) }),
@@ -991,7 +1414,6 @@
     });
     box.appendChild(block);
 
-    /* status */
     var status = el('div', { class: 'status' + (c.pending.length ? '' : ' complete') });
     if (c.pending.length) {
       status.appendChild(el('h4', { text: 'Still to choose' }));
@@ -1000,7 +1422,7 @@
       if (c.pending.length > 8) ul.appendChild(el('li', { text: 'and ' + (c.pending.length - 8) + ' more\u2026' }));
       status.appendChild(ul);
     } else {
-      status.appendChild(el('h4', { text: 'Origin complete. Class comes next.' }));
+      status.appendChild(el('h4', { text: 'Every choice is made.' }));
     }
     box.appendChild(status);
 
@@ -1012,8 +1434,12 @@
       box.appendChild(w);
     }
 
-    /* core numbers */
+    /* core */
     var core = el('div', { class: 'sheet-section' }, [el('h4', { text: 'Core' })]);
+    if (c.hp.total !== null) {
+      core.appendChild(DND.UI.statRow('Hit points', String(c.hp.total)));
+      core.appendChild(DND.UI.statRow('Hit dice', c.hp.dice.join(' + ')));
+    }
     core.appendChild(DND.UI.statRow('Proficiency bonus', DND.formatMod(c.proficiencyBonus)));
     core.appendChild(DND.UI.statRow('Initiative', DND.formatMod(c.initiative)));
     core.appendChild(DND.UI.statRow('Speed', c.speed + ' ft.'));
@@ -1021,15 +1447,21 @@
     core.appendChild(DND.UI.statRow('Creature type', c.creatureType));
     if (c.darkvision) core.appendChild(DND.UI.statRow('Darkvision', c.darkvision + ' ft.'));
     if (c.hpPerLevel) core.appendChild(DND.UI.statRow('Bonus hit points', DND.formatMod(c.hpPerLevel) + ' per level'));
-    c.speedNotes.forEach(function (n) {
-      core.appendChild(el('p', { class: 'field-hint', text: n }));
-    });
+    c.speedNotes.forEach(function (n) { core.appendChild(el('p', { class: 'field-hint', text: n })); });
     box.appendChild(core);
+
+    /* armor class */
+    var ac = el('div', { class: 'sheet-section' }, [el('h4', { text: 'Armor class' })]);
+    c.acOptions.forEach(function (o) {
+      ac.appendChild(DND.UI.statRow(o.label, String(o.value)));
+    });
+    ac.appendChild(el('p', { class: 'field-hint', text: 'Worn armor is not tracked yet. These are your unarmored figures.' }));
+    box.appendChild(ac);
 
     /* saves */
     var saves = el('div', { class: 'sheet-section' }, [el('h4', { text: 'Saving throws' })]);
     c.saves.forEach(function (s) {
-      saves.appendChild(el('div', { class: 'stat-row' + (s.prof ? '' : ' dim') }, [
+      saves.appendChild(el('div', { class: 'stat-row' + (s.prof ? '' : ' dim'), title: s.source || '' }, [
         el('span', { class: 'lbl' }, [
           el('span', { class: 'prof-dot' + (s.prof ? ' on' : '') }),
           document.createTextNode(s.name)
@@ -1037,15 +1469,15 @@
         el('span', { class: 'val', text: DND.formatMod(s.bonus) })
       ]));
     });
-    saves.appendChild(el('p', { class: 'field-hint', text: 'Your class grants two save proficiencies. Those arrive with the class module.' }));
     box.appendChild(saves);
 
     /* skills */
     var sk = el('div', { class: 'sheet-section' }, [el('h4', { text: 'Skills' })]);
     c.skills.forEach(function (s) {
-      sk.appendChild(el('div', { class: 'stat-row' + (s.prof ? '' : ' dim'), title: s.source || '' }, [
+      var cls = 'prof-dot' + (s.expertise ? ' expert' : (s.prof ? ' on' : (s.jack ? ' half' : '')));
+      sk.appendChild(el('div', { class: 'stat-row' + (s.prof ? '' : ' dim'), title: s.source || (s.jack ? 'Jack of All Trades' : '') }, [
         el('span', { class: 'lbl' }, [
-          el('span', { class: 'prof-dot' + (s.expertise ? ' expert' : (s.prof ? ' on' : '')) }),
+          el('span', { class: cls }),
           document.createTextNode(s.name)
         ]),
         el('span', { class: 'val', text: DND.formatMod(s.bonus) })
@@ -1053,7 +1485,6 @@
     });
     box.appendChild(sk);
 
-    /* passive */
     var pass = el('div', { class: 'sheet-section' }, [el('h4', { text: 'Passive scores' })]);
     ['perception', 'investigation', 'insight'].forEach(function (id) {
       var row = c.skills.filter(function (s) { return s.id === id; })[0];
@@ -1061,15 +1492,33 @@
     });
     box.appendChild(pass);
 
-    /* proficiencies */
-    box.appendChild(profSection('Armor', c.armor));
-    box.appendChild(profSection('Weapons', c.weapons));
+    /* spellcasting */
+    if (c.spellcasting) box.appendChild(renderSpellSection(c.spellcasting));
+
+    /* class features */
+    c.classes.forEach(function (ci) {
+      var sec = el('div', { class: 'sheet-section' }, [el('h4', { text: ci.name + ' ' + ci.level }) ]);
+      ci.columns.forEach(function (col) {
+        sec.appendChild(DND.UI.statRow(col.label, String(col.value)));
+      });
+      ci.picks.forEach(function (p) {
+        sec.appendChild(DND.UI.statRow(p.label, p.values.join(', ')));
+      });
+      var names = ci.features.map(function (f) { return f.name; })
+        .concat(ci.optionalFeatures.map(function (f) { return f.name; }));
+      if (names.length) {
+        sec.appendChild(el('div', { class: 'tag-list', text: names.join(', ') }));
+      }
+      box.appendChild(sec);
+    });
+
+    box.appendChild(profSection('Armor proficiencies', c.armor));
+    box.appendChild(profSection('Weapon proficiencies', c.weapons));
     box.appendChild(profSection('Tools', c.tools));
     box.appendChild(profSection('Languages', c.languages.map(function (l) {
-      return { value: DND.Engine.prettyName(l.value), source: l.source };
+      return { value: DND.Engine.prettyName(l.value) };
     })));
 
-    /* racial extras */
     if (c.ancestry) {
       var anc = el('div', { class: 'sheet-section' }, [el('h4', { text: 'Breath weapon' })]);
       anc.appendChild(DND.UI.statRow('Ancestry', c.ancestry.name));
@@ -1077,7 +1526,6 @@
       anc.appendChild(DND.UI.statRow('Area', c.ancestry.breath));
       anc.appendChild(DND.UI.statRow('Save DC',
         String(8 + c.scores.con.mod + c.proficiencyBonus) + '  (' + DND.UI.abbr(c.ancestry.save) + ')'));
-      anc.appendChild(DND.UI.statRow('Resistance', c.ancestry.damage));
       box.appendChild(anc);
     }
 
@@ -1090,10 +1538,9 @@
     }
 
     if (c.traits.length) {
-      var tr = el('div', { class: 'sheet-section' }, [el('h4', { text: 'Traits' })]);
-      var tl = el('div', { class: 'tag-list' });
-      tl.textContent = c.traits.map(function (t) { return t.name; }).join(', ');
-      tr.appendChild(tl);
+      var tr = el('div', { class: 'sheet-section' }, [el('h4', { text: 'Racial traits' })]);
+      tr.appendChild(el('div', { class: 'tag-list',
+        text: c.traits.map(function (t) { return t.name; }).join(', ') }));
       box.appendChild(tr);
     }
 
@@ -1107,14 +1554,61 @@
     }
   }
 
+  function renderSpellSection(sc) {
+    var sec = el('div', { class: 'sheet-section' }, [el('h4', { text: 'Spellcasting' })]);
+
+    sc.perClass.forEach(function (p) {
+      if (!p.active) {
+        sec.appendChild(DND.UI.statRow(p.className, 'starts at level 2', true));
+        return;
+      }
+      sec.appendChild(el('div', { class: 'cast-block' }, [
+        el('div', { class: 'cast-head', text: p.className + '  \u00b7  ' + DND.UI.abbr(p.ability) }),
+        DND.UI.statRow('Save DC', String(p.saveDc)),
+        DND.UI.statRow('Spell attack', DND.formatMod(p.attack)),
+        p.cantrips ? DND.UI.statRow('Cantrips known', String(p.cantrips)) : null,
+        p.known ? DND.UI.statRow('Spells known', String(p.known)) : null,
+        p.prepared ? DND.UI.statRow('Spells prepared', String(p.prepared)) : null,
+        p.spellbook ? DND.UI.statRow('Spellbook', 'yes') : null,
+        p.ritual ? DND.UI.statRow('Rituals', 'yes') : null,
+        DND.UI.statRow('Focus', p.focus)
+      ].filter(Boolean)));
+    });
+
+    if (sc.slots) {
+      var grid = el('div', { class: 'slot-grid' });
+      sc.slots.forEach(function (n, i) {
+        grid.appendChild(el('div', { class: 'slot-cell' }, [
+          el('span', { class: 'slot-level', text: ordinal(i + 1) }),
+          el('span', { class: 'slot-count', text: String(n) })
+        ]));
+      });
+      sec.appendChild(el('div', { class: 'slot-wrap' }, [
+        el('h4', { text: 'Spell slots' + (sc.combined ? ' \u00b7 combined caster level ' + sc.casterLevel : '') }),
+        grid
+      ]));
+    }
+
+    if (sc.pact) {
+      sec.appendChild(el('div', { class: 'slot-wrap' }, [
+        el('h4', { text: 'Pact Magic' }),
+        DND.UI.statRow('Slots', String(sc.pact.slots) + ' of ' + ordinal(sc.pact.level) + ' level')
+      ]));
+    }
+
+    return sec;
+  }
+
+  function ordinal(n) {
+    var s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  }
+
   function profSection(title, list) {
     var sec = el('div', { class: 'sheet-section' }, [el('h4', { text: title })]);
     var body = el('div', { class: 'tag-list' });
-    if (!list.length) {
-      body.appendChild(el('span', { class: 'none', text: 'None yet' }));
-    } else {
-      body.textContent = list.map(function (x) { return x.value; }).sort().join(', ');
-    }
+    if (!list.length) body.appendChild(el('span', { class: 'none', text: 'None yet' }));
+    else body.textContent = list.map(function (x) { return x.value; }).sort().join(', ');
     sec.appendChild(body);
     return sec;
   }
@@ -1129,7 +1623,7 @@
      Save / load
      ============================================================ */
   function saveJson() {
-    var blob = new Blob([JSON.stringify({ version: 1, state: state }, null, 2)], { type: 'application/json' });
+    var blob = new Blob([JSON.stringify({ version: 2, state: state }, null, 2)], { type: 'application/json' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = (state.name || 'character').replace(/[^\w-]+/g, '-').toLowerCase() + '.json';
@@ -1150,6 +1644,15 @@
         var fresh = DND.Engine.blankState();
         Object.keys(fresh).forEach(function (k) {
           if (loaded[k] !== undefined) fresh[k] = loaded[k];
+        });
+        /* version 1 files carried a flat level and no classes */
+        if (!Array.isArray(fresh.classes) || !fresh.classes.length) {
+          fresh.classes = [{ classId: '', level: loaded.level || 1, skills: [], tools: {}, expertise: [], choices: {}, optionalFeatures: [] }];
+        }
+        fresh.classes.forEach(function (c) {
+          c.skills = c.skills || []; c.tools = c.tools || {};
+          c.expertise = c.expertise || []; c.choices = c.choices || {};
+          c.optionalFeatures = c.optionalFeatures || [];
         });
         state = fresh;
         render();

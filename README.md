@@ -17,43 +17,42 @@ entirely usable.
 
 ## What this build covers
 
-Everything that does not depend on a class:
+**Abilities.** Standard array, point buy with a live 27-point budget, manual entry,
+or 4d6-drop-lowest. Racial, feat, level, and class increases are applied separately
+and shown as a breakdown.
 
-- **Level 1–20**, with proficiency bonus and XP threshold.
-- **Ability scores** by standard array, point buy (with a live 27-point budget),
-  manual entry, or rolled 4d6-drop-lowest with assignment.
-- **All PHB races and subraces**, plus Variant Human and Tasha's Custom Lineage.
-  Racial choices are offered inline: the dwarf's artisan tools, the high elf's wizard
-  cantrip, draconic ancestry, half-elf skill versatility, Custom Lineage's size and
-  variable trait.
-- **All 13 PHB backgrounds** with their variants, tool and language choices, and
-  features.
-- **Feats** — 42 from the PHB, 15 from Tasha's, 15 racial feats from Xanathar's.
-  Prerequisites are checked against the live sheet and failing feats are disabled with
-  the reason shown. Feats that require a class feature are marked with a dagger rather
-  than blocked, since the class module isn't in yet.
-- **Ability Score Improvements** at levels 4, 8, 12, 16, and 19, each spendable on
-  +2/+1+1 or traded for a feat.
+**Race.** Every Player's Handbook race and subrace, plus Variant Human and Custom
+Lineage. Draconic ancestry, size choices, extra languages, and racial skill and tool
+picks are all wired to the sheet.
 
-Optional rules, each behind a toggle:
+**Background.** All thirteen Player's Handbook backgrounds with their variants, plus
+Customizing a Background.
 
-- **Customizing Your Origin** (TCE 8) — reassign racial ability increases to any
-  scores, swap racial languages, and trade racial proficiencies under the Proficiency
-  Swaps table.
-- **Customizing a Background** (PHB 125) — any two skills, any two tools or languages.
-- **Feats** (PHB 165) — required before Variant Human and Custom Lineage unlock.
+**Class.** All twelve Player's Handbook classes and the Artificer, with full level
+progressions: hit dice, saving throws, armor and weapon proficiencies, skill and tool
+choices, expertise, and every class feature from 1st to 20th level. Resource columns
+such as rages, ki points, sneak attack dice, sorcery points, invocations known, and
+infusions known follow the level you set. Feature choices are offered where the class
+asks for them: fighting styles, metamagic, eldritch invocations with their boon and
+level prerequisites, artificer infusions, pact boons, and the ranger's favored enemy
+and terrain.
 
-Calculated live in the right-hand sheet: ability modifiers, proficiency bonus,
-initiative, speed, size, creature type, darkvision, bonus hit points per level, all
-eighteen skill bonuses with expertise, passive Perception/Investigation/Insight,
-saving throw bonuses, armor/weapon/tool/language proficiencies with their sources,
-breath weapon save DC, and racial spellcasting.
+**Multiclassing.** Up to four classes, with prerequisites checked against your live
+scores. Saving throw proficiencies come from the first class only, later classes grant
+their reduced proficiency lists, and spell slots combine on the multiclass table while
+Pact Magic stays separate.
 
-The sheet also tracks what is still owed — every unmade choice appears under
-*Still to choose* — and flags conflicts, such as a background skill duplicating a
-racial one, or an ability score that would exceed 20.
+**Hit points.** Fixed average, rolled, or entered by hand.
 
-Characters save to and load from JSON files.
+**Spellcasting.** Save DC, spell attack bonus, cantrips known, spells known or
+prepared, ritual casting, spellbooks, focus, and the full slot table.
+
+**Feats.** All Player's Handbook feats, the Tasha's feats, and the Xanathar's racial
+feats, with prerequisites checked against your current scores and proficiencies.
+
+**Optional rules.** Customizing Your Origin, Customizing a Background, Feats,
+Multiclassing, and Tasha's Optional Class Features, each behind its own toggle.
+
 
 ## What comes next
 

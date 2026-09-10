@@ -551,3 +551,180 @@ select { cursor: pointer; }
 @media (prefers-reduced-motion: no-preference) {
   .ability-cell .score { transition: color 160ms ease; }
 }
+
+/* ============================================================
+   Class step
+   ============================================================ */
+.class-block {
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 1rem 1.1rem 1.2rem;
+  margin-bottom: 1.1rem;
+  background: color-mix(in srgb, var(--panel) 55%, transparent);
+}
+
+.class-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: .6rem;
+}
+
+.btn-quiet {
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--rule);
+  color: var(--slate);
+  font: inherit;
+  font-size: .8rem;
+  letter-spacing: .04em;
+  text-transform: lowercase;
+  padding: 0 0 1px;
+  cursor: pointer;
+}
+.btn-quiet:hover { color: var(--oxblood); border-bottom-color: var(--oxblood); }
+
+.class-table {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem .5rem;
+  margin: .75rem 0 .9rem;
+}
+
+.class-stat {
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: .35rem .6rem .4rem;
+  background: var(--panel);
+  min-width: 5.5rem;
+}
+.cs-label {
+  display: block;
+  font-size: .68rem;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--slate);
+}
+.cs-value {
+  display: block;
+  font-family: var(--display);
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--brass);
+  line-height: 1.2;
+}
+
+.pick-list {
+  margin: .9rem 0;
+  padding-left: .9rem;
+  border-left: 2px solid var(--rule);
+}
+.pick-list .field { margin-bottom: .55rem; }
+.pick-list .field-label {
+  min-width: 1.2rem;
+  color: var(--slate);
+  font-variant-numeric: tabular-nums;
+}
+
+.optional-block {
+  margin: 1rem 0 .5rem;
+  padding-top: .8rem;
+  border-top: 1px solid var(--rule);
+}
+
+.hp-block {
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 1rem 1.1rem;
+  margin-top: 1.1rem;
+  background: color-mix(in srgb, var(--panel) 55%, transparent);
+}
+.hp-block input[type="number"] { max-width: 9rem; }
+
+.feat-level {
+  display: inline-block;
+  min-width: 1.55rem;
+  margin-right: .45rem;
+  padding: .05rem .3rem;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  font-size: .68rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--slate);
+  background: var(--panel);
+  vertical-align: 1px;
+}
+
+.trait-list li.pending-row { color: var(--slate); font-style: italic; }
+.trait-list li.pending-row strong { font-style: normal; }
+
+/* ============================================================
+   Spellcasting on the sheet
+   ============================================================ */
+.cast-block {
+  margin-bottom: .85rem;
+  padding-bottom: .6rem;
+  border-bottom: 1px dotted var(--rule);
+}
+.cast-block:last-child { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
+
+.cast-head {
+  font-family: var(--display);
+  font-size: .95rem;
+  color: var(--ink);
+  margin-bottom: .35rem;
+  letter-spacing: .01em;
+}
+
+.slot-wrap { margin-top: .9rem; }
+.slot-wrap h4 {
+  font-size: .7rem;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--slate);
+  margin: 0 0 .45rem;
+}
+
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(2.4rem, 1fr));
+  gap: .3rem;
+}
+
+.slot-cell {
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: .3rem .1rem .35rem;
+  text-align: center;
+  background: var(--panel);
+}
+.slot-level {
+  display: block;
+  font-size: .62rem;
+  letter-spacing: .04em;
+  color: var(--slate);
+  text-transform: uppercase;
+}
+.slot-count {
+  display: block;
+  font-family: var(--display);
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--brass);
+  line-height: 1.25;
+}
+
+/* half proficiency — Jack of All Trades */
+.prof-dot.half {
+  background: linear-gradient(to right, var(--brass) 50%, transparent 50%);
+  border-color: var(--brass);
+}
+
+.subclass-note {
+  margin-top: .7rem;
+  padding-left: .7rem;
+  border-left: 2px solid var(--brass);
+  font-style: italic;
+}

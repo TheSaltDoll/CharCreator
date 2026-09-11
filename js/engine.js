@@ -22,7 +22,7 @@ DND.Engine = (function () {
         optionalClassFeatures: false,
         books: { PHB: true, XGE: true, TCE: true }
       },
-      classes: [{ classId: '', level: 1, skills: [], tools: {}, expertise: [], choices: {}, optionalFeatures: [], spells: { cantrips: [], known: [], book: [], secrets: [] } }],
+      classes: [{ classId: '', subclassId: '', level: 1, skills: [], tools: {}, expertise: [], choices: {}, optionalFeatures: [], spells: { cantrips: [], known: [], book: [], secrets: [], arcanum: {} } }],
       hpMethod: 'average',
       hpRolls: {},
       hpManual: null,
@@ -152,6 +152,16 @@ DND.Engine = (function () {
     });
   }
 
+  function subclassOf(ce) {
+    return ce.entry.subclassId ? DND.findSubclass(ce.entry.subclassId) : null;
+  }
+
+  function subFeatures(ce) {
+    var sub = subclassOf(ce);
+    if (!sub) return [];
+    return (sub.features || []).filter(function (f) { return f.level <= ce.level; });
+  }
+
   function expertiseSlots(cls, classLevel) {
     return (cls.expertise || []).filter(function (e) { return e.level <= classLevel; });
   }
@@ -205,7 +215,7 @@ DND.Engine = (function () {
     });
 
     classEntries.forEach(function (ce) {
-      activeFeatures(ce).forEach(function (f) {
+      activeFeatures(ce).concat(subFeatures(ce)).forEach(function (f) {
         if (f.asi) {
           DND.ABILITIES.forEach(function (ab) {
             if (f.asi[ab.id]) classAsi[ab.id] = (classAsi[ab.id] || 0) + f.asi[ab.id];
@@ -331,10 +341,47 @@ DND.Engine = (function () {
         }
       });
 
-      activeFeatures(ce).forEach(function (f) {
+      activeFeatures(ce).concat(subFeatures(ce)).forEach(function (f) {
         if (f.addSave) saveProfs.push({ ability: f.addSave, source: cls.name + ' \u2014 ' + f.name });
         if (f.allSaves) allSaves = true;
+        if (f.expertiseSkills) {
+          f.expertiseSkills.forEach(function (sk) {
+            addSkill(sk, cls.name + ' \u2014 ' + f.name, false);
+            expertise.push({ skill: sk, source: f.name });
+          });
+        }
+        (f.weaponCategories || []).forEach(function (w) { addWeapon(w, cls.name + ' \u2014 ' + f.name); });
       });
+
+      /* subclass grants */
+      var sub = subclassOf(ce);
+      if (sub) {
+        var slabel = sub.name;
+        (sub.armor || []).forEach(function (a) { addArmor(a, slabel); });
+        (sub.weaponCategories || []).forEach(function (w) { addWeapon(w, slabel); });
+        (sub.weapons || []).forEach(function (w) { addWeapon(w, slabel); });
+        (sub.tools || []).forEach(function (t) { addTool(t, slabel); });
+        if (sub.skills) {
+          ((ce.entry.choices || {}).subSkills || []).slice(0, sub.skills.count)
+            .forEach(function (sk) { if (sk) addSkill(sk, slabel, true); });
+        }
+        subFeatures(ce).forEach(function (f) {
+          ['choice', 'choice2'].forEach(function (ck) {
+            var c = f[ck];
+            if (!c) return;
+            var v = (ce.entry.choices || {})[c.id];
+            if (!v) return;
+            (Array.isArray(v) ? v : [v]).forEach(function (val) {
+              if (!val) return;
+              if (c.type === 'skill') {
+                addSkill(val, slabel, true);
+                if (c.expertise) expertise.push({ skill: val, source: slabel });
+              } else if (c.type === 'tool') addTool(val, slabel, true);
+              else if (c.type === 'language') addLang(val, slabel, true);
+            });
+          });
+        });
+      }
 
       var inv = (ce.entry.choices || {}).invocations;
       if (inv) {
@@ -407,7 +454,7 @@ DND.Engine = (function () {
         var bonus = ce.cls.speedByLevel[ce.level] || 0;
         if (bonus) { speed += bonus; if (ce.cls.speedNote) speedNotes.push(ce.cls.speedNote); }
       }
-      activeFeatures(ce).forEach(function (f) {
+      activeFeatures(ce).concat(subFeatures(ce)).forEach(function (f) {
         if (f.speed) {
           speed += f.speed;
           speedNotes.push(ce.cls.name + ' \u2014 ' + f.name + ' adds ' + f.speed + ' feet.');
@@ -443,8 +490,26 @@ DND.Engine = (function () {
       if (feat.hpPerLevel) hpPerLevel += feat.hpPerLevel;
     });
     if (subrace && subrace.hpPerLevel) hpPerLevel += subrace.hpPerLevel;
+    var subUnarmoredAc = [];
+    classEntries.forEach(function (ce) {
+      subFeatures(ce).forEach(function (f) {
+        if (f.hpPerLevel) hpPerLevel += f.hpPerLevel * 0 + 0;  /* applied per class below */
+        if (f.unarmoredAc) subUnarmoredAc.push({ ce: ce, ac: f.unarmoredAc });
+      });
+    });
+    /* Draconic Resilience adds 1 hp per sorcerer level, not per character level */
+    var subclassFlatHp = 0;
+    classEntries.forEach(function (ce) {
+      subFeatures(ce).forEach(function (f) {
+        if (f.hpPerLevel) subclassFlatHp += f.hpPerLevel * ce.level;
+      });
+    });
 
     var hp = computeHp(state, classEntries, scores.con.mod, hpPerLevel, level);
+    if (hp.total !== null && subclassFlatHp && state.hpMethod !== 'manual') {
+      hp.total += subclassFlatHp;
+      hp.subclassBonus = subclassFlatHp;
+    }
 
     /* ---------- skills ---------- */
     var skillIds = skills.map(function (s) { return s.value; });
@@ -497,6 +562,14 @@ DND.Engine = (function () {
       });
     });
 
+    subUnarmoredAc.forEach(function (u) {
+      acOptions.push({
+        label: u.ac.label,
+        value: u.ac.base + scores[u.ac.ability].mod,
+        note: u.ac.base + ' + ' + DND.ABILITIES.filter(function (a) { return a.id === u.ac.ability; })[0].name + ', wearing no armor.'
+      });
+    });
+
     /* ---------- traits ---------- */
     var traits = [];
     function addTraits(src, label) {
@@ -539,7 +612,22 @@ DND.Engine = (function () {
               return (ce.entry.optionalFeatures || []).indexOf(f.name) !== -1;
             })
           : [],
-        picks: describePicks(ce)
+        picks: describePicks(ce),
+        subclass: (function () {
+          var sub = subclassOf(ce);
+          if (!sub) return null;
+          return {
+            id: sub.id, name: sub.name, source: sub.source,
+            features: subFeatures(ce),
+            columns: (sub.columns || []).map(function (col) {
+              return { id: col.id, label: col.label,
+                       value: DND.subColumnValue(sub, col.id, ce.level) };
+            }).filter(function (c) { return c.value !== null; }),
+            spells: DND.subclassSpells(sub, ce.level, (ce.entry.choices || {})[sub.variantSpells && sub.variantSpells.key]),
+            spellsNote: sub.spellsNote || 'Always prepared. They do not count against the number of spells you prepare.',
+            expandedList: !!sub.expandedList
+          };
+        })()
       };
     });
 
@@ -637,11 +725,20 @@ DND.Engine = (function () {
   }
 
   function computeSpellcasting(state, classEntries, scores, pb) {
-    var casters = classEntries.filter(function (ce) { return ce.cls.spellcasting; });
+    /* A subclass can bring spellcasting the base class lacks — Eldritch Knight
+       and Arcane Trickster both do. Treat it as if the class carried it. */
+    var casters = classEntries.filter(function (ce) {
+      if (ce.cls.spellcasting) { ce.sc = ce.cls.spellcasting; return true; }
+      var sub = ce.entry.subclassId ? DND.findSubclass(ce.entry.subclassId) : null;
+      if (sub && sub.spellcasting && ce.level >= (ce.cls.subclass ? ce.cls.subclass.level : 3)) {
+        ce.sc = sub.spellcasting; ce.subName = sub.name; return true;
+      }
+      return false;
+    });
     if (!casters.length) return null;
 
     var perClass = casters.map(function (ce) {
-      var sc = ce.cls.spellcasting;
+      var sc = ce.sc;
       var mod = scores[sc.ability].mod;
       var active = !sc.startLevel || ce.level >= sc.startLevel;
       var prepared = null;
@@ -658,13 +755,16 @@ DND.Engine = (function () {
         ritual: !!sc.ritual, focus: sc.focus, spellbook: !!sc.spellbook,
         cantrips: sc.cantrips ? sc.cantrips[ce.level] : null,
         known: sc.known ? sc.known[ce.level] : null,
-        prepared: prepared, type: sc.type
+        prepared: prepared, type: sc.type,
+        fromSubclass: !!ce.subName, subName: ce.subName || null,
+        listId: sc.list || ce.cls.id,
+        schools: sc.schools || null, schoolsFreeAt: sc.schoolsFreeAt || null
       };
     });
 
     /* Highest slot level this character can actually cast, which bounds the
        spells worth choosing. */
-    var pactEntry0 = casters.filter(function (ce) { return ce.cls.spellcasting.type === 'pact'; })[0];
+    var pactEntry0 = casters.filter(function (ce) { return ce.sc.type === 'pact'; })[0];
 
     var pactEntry = pactEntry0;
     var pact = null;
@@ -673,15 +773,15 @@ DND.Engine = (function () {
       pact = { slots: p.slots, level: p.level, className: pactEntry.cls.name };
     }
 
-    var slotCasters = casters.filter(function (ce) { return ce.cls.spellcasting.type !== 'pact'; });
+    var slotCasters = casters.filter(function (ce) { return ce.sc.type !== 'pact'; });
     var slots = null, casterLevel = 0, combined = slotCasters.length > 1;
 
     if (slotCasters.length === 1) {
       var only = slotCasters[0];
-      casterLevel = DND.casterLevel(only.cls.spellcasting.type, only.level, false);
+      casterLevel = DND.casterLevel(only.sc.type, only.level, false);
     } else if (slotCasters.length > 1) {
       slotCasters.forEach(function (ce) {
-        casterLevel += DND.casterLevel(ce.cls.spellcasting.type, ce.level, true);
+        casterLevel += DND.casterLevel(ce.sc.type, ce.level, true);
       });
     }
     casterLevel = Math.min(20, casterLevel);
@@ -709,9 +809,39 @@ DND.Engine = (function () {
       if (p.spellbook) {
         p.bookLimit = 6 + Math.max(0, p.level - 1) * 2;
       }
+      var sub2 = ce.entry.subclassId ? DND.findSubclass(ce.entry.subclassId) : null;
+      p.subclassSpells = sub2
+        ? DND.subclassSpells(sub2, ce.level, (ce.entry.choices || {})[sub2.variantSpells && sub2.variantSpells.key])
+        : [];
+      p.subclassExpanded = !!(sub2 && sub2.expandedList);
+      p.extraLists = [];
+      if (sub2) {
+        (sub2.features || []).forEach(function (f) {
+          if (f.extraList && p.level >= f.level) p.extraLists.push(f.extraList);
+        });
+      }
       p.secretsLimit = 0;
       if (p.classId === 'bard') {
         [10, 14, 18].forEach(function (lv) { if (p.level >= lv) p.secretsLimit += 2; });
+      }
+      /* A subclass can hand out more Magical Secrets — College of Lore does at 6th. */
+      if (sub2) {
+        (sub2.features || []).forEach(function (f) {
+          if (f.magicalSecrets && p.level >= f.level) p.secretsLimit += f.magicalSecrets;
+        });
+      }
+
+      /* Mystic Arcanum: one spell of each level, from warlock 11 upward. */
+      p.arcanum = [];
+      if (p.type === 'pact') {
+        var arc = (picks.arcanum) || {};
+        [[11, 6], [13, 7], [15, 8], [17, 9]].forEach(function (pair) {
+          if (p.level < pair[0]) return;
+          p.arcanum.push({
+            spellLevel: pair[1],
+            chosen: (arc[pair[1]] || []).filter(function (x) { return x !== null && x !== undefined; })
+          });
+        });
       }
     });
 
@@ -737,6 +867,29 @@ DND.Engine = (function () {
         out.push({ def: c, count: count, featureName: f.name });
       });
     });
+    var sub = ce.entry.subclassId ? DND.findSubclass(ce.entry.subclassId) : null;
+    if (sub) {
+      (sub.features || []).filter(function (f) { return f.level <= ce.level; })
+        .forEach(function (f) {
+          ['choice', 'choice2'].forEach(function (ck) {
+            if (!f[ck]) return;
+            var c = f[ck], count = c.count;
+            if (c.countColumn) count = DND.subColumnValue(sub, c.countColumn, ce.level) || 0;
+            out.push({ def: c, count: count, featureName: f.name });
+          });
+        });
+    }
+    var sub = subclassOf(ce);
+    if (sub) {
+      subFeatures(ce).forEach(function (f) {
+        ['choice', 'choice2'].forEach(function (ck) {
+          if (!f[ck]) return;
+          var c = f[ck], count = c.count;
+          if (c.countColumn) count = DND.subColumnValue(sub, c.countColumn, ce.level) || 0;
+          out.push({ def: c, count: count, featureName: f.name });
+        });
+      });
+    }
     (ce.entry.optionalFeatures || []).forEach(function (name) {
       var opt = DND.OPTIONAL_CLASS_FEATURES.filter(function (o) {
         return o.classId === ce.cls.id && o.name === name && o.level <= ce.level;
@@ -830,6 +983,17 @@ DND.Engine = (function () {
           }
         }
       });
+      if (cls.subclass && ce.level >= cls.subclass.level && !ce.entry.subclassId) {
+        out.push(cls.name + ': choose your ' + cls.subclass.label + '.');
+      }
+      var sub = ce.entry.subclassId ? DND.findSubclass(ce.entry.subclassId) : null;
+      if (sub && sub.skills) {
+        var got = ((ce.entry.choices || {}).subSkills || []).filter(Boolean).length;
+        if (got < sub.skills.count) {
+          out.push(sub.name + ': choose ' + (sub.skills.count - got) + ' more skill' +
+            (sub.skills.count - got === 1 ? '' : 's') + '.');
+        }
+      }
       featureChoices(ce).forEach(function (fc) {
         var v = (ce.entry.choices || {})[fc.def.id];
         var have = Array.isArray(v) ? v.filter(Boolean).length : (v ? 1 : 0);
@@ -859,6 +1023,11 @@ DND.Engine = (function () {
         if (p.secretsLimit && p.secretsChosen.length < p.secretsLimit) {
           out.push(p.className + ': choose ' + (p.secretsLimit - p.secretsChosen.length) + ' more Magical Secrets.');
         }
+        (p.arcanum || []).forEach(function (a) {
+          if (!a.chosen.length) {
+            out.push(p.className + ': choose your ' + DND.ordinal(a.spellLevel) + '-level Mystic Arcanum.');
+          }
+        });
       });
     }
 
@@ -1034,6 +1203,7 @@ DND.Engine = (function () {
     featureChoices: featureChoices,
     expertiseSlots: expertiseSlots,
     activeFeatures: activeFeatures,
+    subFeatures: subFeatures,
     asiLevelsFor: asiLevelsFor,
     asiSlotKeys: asiSlotKeys,
     featsOwed: featsOwed,

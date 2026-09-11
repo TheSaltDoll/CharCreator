@@ -48,6 +48,20 @@ Pact Magic stays separate.
 prepared, ritual casting, focus, the full slot table, and the highest spell level
 you can actually cast.
 
+**Subclass.** All 101 archetypes from the three books — forty from the Player's
+Handbook, thirty-one from Xanathar's, thirty from Tasha's — with their features, granted
+spells, bonus proficiencies, and sub-choices — totem animals, Battle Master
+maneuvers, elemental disciplines, the Land druid's terrain, the Hunter's three tiers
+of options. Domain, oath, circle, and patron spells are resolved against the spell
+data and marked always prepared where the rules say so. Eldritch Knight and Arcane
+Trickster bring third-caster spellcasting to classes that otherwise have none,
+including the correct rounding when multiclassed. Magical Secrets granted by a
+subclass stack with the bard's own, and warlocks pick their Mystic Arcanum from
+11th level. Subclass choices are wired through: totem animals, Battle Master
+maneuvers, elemental disciplines, Arcane Shots, Rune Knight runes, Storm Herald
+environments, armor models, starry forms, and the genie kind that swaps a warlock's
+bonus spells.
+
 **Spells.** All 477 spells from the three books, with level, school, casting time,
 range, components, material, duration, and the ritual and concentration tags. Each
 class picks from its own list, filtered to the levels it can cast and capped at the
@@ -135,6 +149,10 @@ spell parsed from the book, and every per-class count had to match. Both hold.
 
 Spell names damaged by the scan were repaired against the hand-encoded lists, which
 are correct by construction, and the remainder fixed individually.
+
+Subclass spell grants are resolved by name at load and warn in the console if one
+fails to match, so the two data files cannot drift apart silently. All 200 references
+currently resolve — 458 of them across all 101 subclasses.
 
 `data/spells.js` stores spells as compact rows and class lists as indices into them,
 inflated once at load. That keeps the file around 60 KB rather than several hundred.

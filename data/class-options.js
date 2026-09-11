@@ -281,3 +281,29 @@ DND.findOption = function (list, id) {
   for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
   return null;
 };
+
+/* ---------------------------------------------------------------
+   Arcane Shot options for the Arcane Archer. XGE 29.
+   --------------------------------------------------------------- */
+DND.ARCANE_SHOTS = [
+  { id: 'banishing', name: 'Banishing Arrow', source: 'XGE 29', note: 'Banish the target to a harmless demiplane until the end of your next turn.' },
+  { id: 'beguiling', name: 'Beguiling Arrow', source: 'XGE 29', note: 'Psychic damage, and the target is charmed by an ally of your choice.' },
+  { id: 'bursting', name: 'Bursting Arrow', source: 'XGE 29', note: 'Force damage to the target and everything within 10 feet of it.' },
+  { id: 'enfeebling', name: 'Enfeebling Arrow', source: 'XGE 29', note: 'Necrotic damage, and the target deals half weapon damage until your next turn.' },
+  { id: 'grasping', name: 'Grasping Arrow', source: 'XGE 30', note: 'Poison damage, reduced speed, and slashing damage when the target moves.' },
+  { id: 'piercing', name: 'Piercing Arrow', source: 'XGE 30', note: 'The arrow passes through cover and every creature in a 30-foot line.' },
+  { id: 'seeking', name: 'Seeking Arrow', source: 'XGE 30', note: 'The arrow curves around cover to find a creature you name.' },
+  { id: 'shadow', name: 'Shadow Arrow', source: 'XGE 30', note: 'Psychic damage, and the target cannot see beyond 5 feet until your next turn.' }
+];
+
+/* ---------------------------------------------------------------
+   Runes for the Rune Knight. TCE 45.
+   --------------------------------------------------------------- */
+DND.RUNES = [
+  { id: 'cloud', name: 'Cloud Rune', source: 'TCE 45', note: 'Advantage on Sleight of Hand and Deception. Invoke to redirect an attack to another creature.' },
+  { id: 'fire', name: 'Fire Rune', source: 'TCE 46', note: 'Double proficiency on tool checks. Invoke to shackle and burn a creature you hit.' },
+  { id: 'frost', name: 'Frost Rune', source: 'TCE 46', note: 'Advantage on Animal Handling and Intimidation. Invoke for +2 to Strength and Constitution checks and saves.' },
+  { id: 'stone', name: 'Stone Rune', source: 'TCE 46', note: 'Advantage on Insight and darkvision to 120 feet. Invoke to charm a creature that starts its turn near you.' },
+  { id: 'hill', name: 'Hill Rune', source: 'TCE 46', level: 7, note: 'Advantage on saves against poison and resistance to poison damage. Invoke for resistance to bludgeoning, piercing, and slashing.' },
+  { id: 'storm', name: 'Storm Rune', source: 'TCE 46', level: 7, note: 'Advantage on Arcana and you cannot be surprised. Invoke to grant advantage or impose disadvantage on rolls near you.' }
+];

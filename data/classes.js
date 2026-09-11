@@ -35,7 +35,9 @@ DND.casterLevel = function (casterType, classLevel, forMulticlass) {
       if (forMulticlass) return Math.floor(classLevel / 2);
       return classLevel < 2 ? 0 : Math.ceil(classLevel / 2);
     case 'artificer': return Math.ceil(classLevel / 2);
-    case 'third': return Math.floor(classLevel / 3);
+    case 'third':
+      if (forMulticlass) return Math.floor(classLevel / 3);
+      return classLevel < 3 ? 0 : Math.ceil(classLevel / 3);
     default: return 0;
   }
 };

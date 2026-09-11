@@ -904,3 +904,30 @@ select { cursor: pointer; }
 @media print {
   .sp-list, .spell-picker input[type="search"] { display: none; }
 }
+
+/* ============================================================
+   Subclass
+   ============================================================ */
+.subclass-block {
+  margin: 1.1rem 0 .3rem;
+  padding: .9rem 1rem 1rem;
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--brass);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--brass) 5%, var(--panel));
+}
+.subclass-block .trait-list { margin-bottom: 0; }
+.source-line {
+  margin-top: -.2rem;
+  font-size: .72rem;
+  letter-spacing: .04em;
+  color: var(--slate);
+}
+.spell-picker.granted { background: color-mix(in srgb, var(--brass) 7%, var(--panel)); }
+.sub-name {
+  font-family: var(--display);
+  font-size: .84rem;
+  color: var(--brass);
+  margin: -.25rem 0 .45rem;
+  letter-spacing: .01em;
+}

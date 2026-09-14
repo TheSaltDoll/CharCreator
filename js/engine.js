@@ -80,13 +80,26 @@ DND.Engine = (function () {
     return list;
   }
 
+  /* Customizing Your Origin lets you move racial increases around, but if the
+     race already raises every ability by the same amount — the human's +1 to
+     all six — every legal arrangement is identical, so there is nothing to ask. */
+  function asiIsExhaustive(incs) {
+    if (incs.length !== DND.ABILITIES.length) return false;
+    if (!incs.every(function (i) { return i.fixed; })) return false;
+    if (!incs.every(function (i) { return i.amount === incs[0].amount; })) return false;
+    var seen = {};
+    incs.forEach(function (i) { seen[i.fixed] = 1; });
+    return DND.ABILITIES.every(function (a) { return seen[a.id]; });
+  }
+
   function resolveRacialAsi(race, subrace, state, warnings) {
     var out = {};
     var incs = racialIncreases(race, subrace);
     var used = [];
+    var exhaustive = asiIsExhaustive(incs);
     incs.forEach(function (inc, i) {
       var target = null;
-      if (state.options.tashaOrigin && !(race && race.noOriginCustomization)) {
+      if (state.options.tashaOrigin && !exhaustive && !(race && race.noOriginCustomization)) {
         target = state.originAsi[i] || null;
       } else if (inc.fixed) {
         target = inc.fixed;
@@ -911,7 +924,8 @@ DND.Engine = (function () {
 
     if (race && race.size === 'choice' && !state.raceChoices.__size) out.push('Choose your size.');
 
-    if (state.options.tashaOrigin && race && !race.noOriginCustomization) {
+    if (state.options.tashaOrigin && race && !race.noOriginCustomization
+        && !asiIsExhaustive(racial.increases)) {
       racial.increases.forEach(function (inc, i) {
         if (!state.originAsi[i]) out.push('Assign the +' + inc.amount + ' racial ability increase.');
       });
@@ -1195,6 +1209,7 @@ DND.Engine = (function () {
     build: build,
     totalLevel: totalLevel,
     racialIncreases: racialIncreases,
+    asiIsExhaustive: asiIsExhaustive,
     collectRaceChoices: collectRaceChoices,
     featureChoices: featureChoices,
     expertiseSlots: expertiseSlots,

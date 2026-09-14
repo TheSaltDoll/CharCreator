@@ -331,6 +331,7 @@
 
     var nested = el('div', { class: 'nested' });
     if (race.optionalNote) nested.appendChild(el('p', { class: 'field-hint', text: race.optionalNote }));
+    if (race.note) nested.appendChild(el('p', { class: 'field-hint variant-note', text: race.note }));
 
     if (race.subraces && race.subraces.length) {
       nested.appendChild(field('Subrace', select({
@@ -370,7 +371,8 @@
   function renderRacialAsi(box, race) {
     var incs = computed.racialAsi.increases;
     if (!incs.length) return;
-    var tasha = state.options.tashaOrigin && !race.noOriginCustomization;
+    var exhaustive = DND.Engine.asiIsExhaustive(incs);
+    var tasha = state.options.tashaOrigin && !exhaustive && !race.noOriginCustomization;
 
     var wrap = el('div', {});
     wrap.appendChild(el('span', { class: 'field-label', text: 'Ability score increases' }));

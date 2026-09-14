@@ -931,3 +931,8 @@ select { cursor: pointer; }
   margin: -.25rem 0 .45rem;
   letter-spacing: .01em;
 }
+
+.variant-note {
+  padding-left: .7rem;
+  border-left: 2px solid var(--rule);
+}

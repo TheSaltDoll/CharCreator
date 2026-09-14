@@ -137,12 +137,16 @@ DND.RACES = [
     asi: { str: 1, dex: 1, con: 1, int: 1, wis: 1, cha: 1 },
     size: 'Medium', speed: 30,
     languages: { fixed: ['common'], choose: 1 },
-    traits: [{ name: 'Extra Language', text: 'Speak, read, and write one extra language of your choice.' }]
+    note: 'Variant Human Traits (PHB 31) are an optional alternative: two ability scores of your choice increase by 1 instead of all six, and you gain a skill and a feat. Switch on the Feats rule in step 2 and pick Human (Variant) above.',
+    traits: [
+      { name: 'Ability Score Increase', text: 'Each of your ability scores increases by 1.' },
+      { name: 'Extra Language', text: 'Speak, read, and write one extra language of your choice.' }
+    ]
   },
 
   {
     id: 'variantHuman', name: 'Human (Variant)', source: 'PHB 31', optional: true,
-    optionalNote: 'Optional rule. Requires your DM to allow feats.',
+    optionalNote: 'Optional. These traits replace the human\u2019s Ability Score Increase, so you gain +1 to two abilities of your choice rather than +1 to all six. Your DM must allow feats.',
     asi: { choose: { count: 2, amount: 1, distinct: true } },
     size: 'Medium', speed: 30,
     languages: { fixed: ['common'], choose: 1 },

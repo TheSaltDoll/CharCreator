@@ -186,9 +186,21 @@ DND.SUBCLASSES = [
   }
 },
 { id: 'moon', classId: 'druid', name: 'Circle of the Moon', source: 'PHB 69',
+  /* PHB 69: CR 1 from 2nd level, then your druid level divided by 3, rounded
+     down, from 6th. The Max CR column is ignored but the Beast Shapes table's
+     other limits still apply, so no swimming speed before 4th and no flying
+     before 8th. */
+  columnOverrides: {
+    wildShape: function (level) {
+      if (level < 2) return '\u2014';
+      var cr = level < 6 ? 1 : Math.floor(level / 3);
+      var limit = level < 4 ? ', no swim or fly' : (level < 8 ? ', no fly' : '');
+      return cr + limit;
+    }
+  },
   features: [
     { level: 2, name: 'Combat Wild Shape', text: 'Wild Shape as a bonus action, and expend a spell slot while transformed to regain 1d8 hit points per slot level.' },
-    { level: 2, name: 'Circle Forms', text: 'Wild Shape into beasts of CR 1, rising to CR equal to a third of your druid level, rounded down, at 6th level.' },
+    { level: 2, name: 'Circle Forms', text: 'Wild Shape into beasts of challenge rating 1, ignoring the Max CR column of the Beast Shapes table. From 6th level the limit becomes your druid level divided by 3, rounded down. The table\u2019s other limits still apply: no swimming speed before 4th level, no flying before 8th.' },
     { level: 6, name: 'Primal Strike', text: 'Your beast form attacks count as magical.' },
     { level: 10, name: 'Elemental Wild Shape', text: 'Expend two Wild Shape uses to become an air, earth, fire, or water elemental.' },
     { level: 14, name: 'Thousand Forms', text: 'Cast alter self at will.' }

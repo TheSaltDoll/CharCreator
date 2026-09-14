@@ -605,7 +605,13 @@ DND.Engine = (function () {
         subclassDue: ce.cls.subclass ? ce.level >= ce.cls.subclass.level : false,
         features: activeFeatures(ce),
         columns: (ce.cls.columns || []).map(function (col) {
-          return { id: col.id, label: col.label, value: col.values[ce.level] };
+          /* A subclass may rewrite a class table column outright — the Circle
+             of the Moon replaces the druid's Wild Shape CR limits. */
+          var ov = subclassOf(ce) && subclassOf(ce).columnOverrides;
+          var fn = ov && ov[col.id];
+          return { id: col.id, label: col.label,
+                   value: fn ? fn(ce.level) : col.values[ce.level],
+                   overridden: !!fn };
         }),
         optionalFeatures: state.options.optionalClassFeatures
           ? DND.optionalFeaturesFor(ce.cls.id, ce.level).filter(function (f) {

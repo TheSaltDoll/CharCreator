@@ -690,9 +690,7 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
   features: [
     { level: 3, name: 'Tools of the Trade', text: 'Proficiency with heavy armor and smith\u2019s tools.' },
     { level: 3, name: 'Arcane Armor', text: 'Your armor becomes a magic item that needs no Strength, cannot be removed against your will, and replaces a spellcasting focus.' },
-    { level: 3, name: 'Armor Model', text: 'Guardian for a thunder gauntlet and defensive taunt, or Infiltrator for a lightning launcher and stealth.',
-      choice: { id: 'armorModel', label: 'Armor model', type: 'list', count: 1,
-        from: ['Guardian', 'Infiltrator'] } },
+    { level: 3, name: 'Armor Model', text: 'Choose Guardian, for thunder gauntlets and a defensive taunt, or Infiltrator, for a lightning launcher and added stealth. You can change the model whenever you finish a short or long rest, provided you have smith\u2019s tools in hand, so this is not fixed at creation.' },
     { level: 5, name: 'Extra Attack', text: 'Attack twice when you take the Attack action.' },
     { level: 9, name: 'Armor Modifications', text: 'Your armor counts as four separate items for infusions, and you gain two more infusions known.' },
     { level: 15, name: 'Perfected Armor', text: 'Your model improves: Guardian pulls creatures to you, Infiltrator staggers and damages them.' }

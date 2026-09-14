@@ -867,18 +867,6 @@ DND.Engine = (function () {
         out.push({ def: c, count: count, featureName: f.name });
       });
     });
-    var sub = ce.entry.subclassId ? DND.findSubclass(ce.entry.subclassId) : null;
-    if (sub) {
-      (sub.features || []).filter(function (f) { return f.level <= ce.level; })
-        .forEach(function (f) {
-          ['choice', 'choice2'].forEach(function (ck) {
-            if (!f[ck]) return;
-            var c = f[ck], count = c.count;
-            if (c.countColumn) count = DND.subColumnValue(sub, c.countColumn, ce.level) || 0;
-            out.push({ def: c, count: count, featureName: f.name });
-          });
-        });
-    }
     var sub = subclassOf(ce);
     if (sub) {
       subFeatures(ce).forEach(function (f) {
@@ -886,7 +874,9 @@ DND.Engine = (function () {
           if (!f[ck]) return;
           var c = f[ck], count = c.count;
           if (c.countColumn) count = DND.subColumnValue(sub, c.countColumn, ce.level) || 0;
-          out.push({ def: c, count: count, featureName: f.name });
+          /* flagged so the class-level renderer can skip these: the subclass
+             block draws them itself, and they were appearing twice. */
+          out.push({ def: c, count: count, featureName: f.name, fromSubclass: true });
         });
       });
     }

@@ -33,17 +33,15 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
     { level: 14, name: 'Rage Beyond Death', text: 'Dropping to 0 hit points while raging does not knock you unconscious.' }
   ]
 },
-{ id: 'beastBarb', classId: 'barbarian', name: 'Path of the Beast', source: 'TCE 10',
+{ id: 'beastBarb', classId: 'barbarian', name: 'Path of the Beast', source: 'TCE 24',
   features: [
-    { level: 3, name: 'Form of the Beast', text: 'Grow a natural weapon when you rage: a bite that heals you, claws for an extra attack, or a tail that adds to AC as a reaction.',
-      choice: { id: 'beastForm', label: 'Natural weapon', type: 'list', count: 1,
-        from: ['Bite', 'Claws', 'Tail'] } },
+    { level: 3, name: 'Form of the Beast', text: 'Manifest a natural weapon when you rage, choosing its form each time: a bite that heals you, claws for an extra attack, or a tail that adds to AC as a reaction.' },
     { level: 6, name: 'Bestial Soul', text: 'Your natural weapons count as magical, and you gain a swimming, climbing, or jumping benefit after each rest.' },
     { level: 10, name: 'Infectious Fury', text: 'A natural weapon hit while raging can force a Wisdom save to compel an attack on another creature or deal 2d12 psychic damage.' },
     { level: 14, name: 'Call the Hunt', text: 'Give up to your Constitution modifier in allies an extra damage die on their attacks, and gain temporary hit points.' }
   ]
 },
-{ id: 'wildMagicBarb', classId: 'barbarian', name: 'Path of Wild Magic', source: 'TCE 11',
+{ id: 'wildMagicBarb', classId: 'barbarian', name: 'Path of Wild Magic', source: 'TCE 25',
   features: [
     { level: 3, name: 'Magic Awareness', text: 'Action. Detect spells and magic items within 60 feet. Uses equal your proficiency bonus per long rest.' },
     { level: 3, name: 'Wild Surge', text: 'Roll on the Wild Magic table when you enter your rage.' },
@@ -82,7 +80,7 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
     { level: 14, name: 'Shadow Lore', text: 'Whisper a dark secret to charm a creature for 8 days on a failed Wisdom save.' }
   ]
 },
-{ id: 'creation', classId: 'bard', name: 'College of Creation', source: 'TCE 15',
+{ id: 'creation', classId: 'bard', name: 'College of Creation', source: 'TCE 28',
   features: [
     { level: 3, name: 'Mote of Potential', text: 'Your Bardic Inspiration also creates a mote: bonus damage on an attack, temporary hit points on a check, or an ally bonus on a save.' },
     { level: 3, name: 'Performance of Creation', text: 'Action. Create a nonmagical item worth no more than 20 gp times your bard level.' },
@@ -90,7 +88,7 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
     { level: 14, name: 'Creative Crescendo', text: 'Performance of Creation makes multiple items, without the size or value limits.' }
   ]
 },
-{ id: 'eloquence', classId: 'bard', name: 'College of Eloquence', source: 'TCE 16',
+{ id: 'eloquence', classId: 'bard', name: 'College of Eloquence', source: 'TCE 29',
   features: [
     { level: 3, name: 'Silver Tongue', text: 'Treat a d20 roll of 9 or lower as a 10 for Persuasion and Deception.' },
     { level: 3, name: 'Unsettling Words', text: 'Bonus action. Spend a Bardic Inspiration to subtract the die from a creature\u2019s next saving throw.' },
@@ -143,7 +141,7 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
     { level: 17, name: "Order's Wrath", text: 'A creature damaged by your Divine Strike takes 2d8 psychic damage from the next ally to hit it.' }
   ]
 },
-{ id: 'peace', classId: 'cleric', name: 'Peace Domain', source: 'TCE 33',
+{ id: 'peace', classId: 'cleric', name: 'Peace Domain', source: 'TCE 32',
   armor: ['Heavy armor'], tools: ['One musical instrument'],
   skills: { count: 1, from: ['insight', 'performance', 'persuasion'] },
   spells: { 1: ['Heroism', 'Sanctuary'], 3: ['Aid', 'Warding Bond'],
@@ -158,7 +156,7 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
     { level: 17, name: 'Expansive Bond', text: 'Emboldening Bond and Protective Bond work at 60 feet.' }
   ]
 },
-{ id: 'twilight', classId: 'cleric', name: 'Twilight Domain', source: 'TCE 35',
+{ id: 'twilight', classId: 'cleric', name: 'Twilight Domain', source: 'TCE 34',
   armor: ['Heavy armor'], weaponCategories: ['Martial weapons'],
   spells: { 1: ['Faerie Fire', 'Sleep'], 3: ['Moonbeam', 'See Invisibility'],
             5: ['Aura of Vitality', 'Leomund\u2019s Tiny Hut'], 7: ['Aura of Life', 'Greater Invisibility'],
@@ -186,9 +184,7 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
 { id: 'shepherd', classId: 'druid', name: 'Circle of the Shepherd', source: 'XGE 23',
   features: [
     { level: 2, name: 'Speech of the Woods', text: 'You speak Sylvan and can converse with beasts.' },
-    { level: 2, name: 'Spirit Totem', text: 'Bonus action. A 30-foot spirit aura for 1 minute: bear grants temporary hit points and advantage on Strength checks, hawk grants advantage on attacks and Perception, unicorn grants advantage to find creatures and boosts healing.',
-      choice: { id: 'spiritTotem', label: 'Spirit Totem', type: 'list', count: 1,
-        from: ['Bear Spirit', 'Hawk Spirit', 'Unicorn Spirit'] } },
+    { level: 2, name: 'Spirit Totem', text: 'Bonus action. Summon a 30-foot spirit aura for 1 minute, choosing the spirit each time: bear grants temporary hit points and advantage on Strength checks, hawk grants advantage on attacks and Perception, unicorn grants advantage to find creatures and boosts healing.' },
     { level: 6, name: 'Mighty Summoner', text: 'Creatures you conjure gain 2 extra hit points per hit die, and their attacks count as magical.' },
     { level: 10, name: 'Guardian Spirit', text: 'Summoned creatures in your totem aura regain hit points equal to half your druid level at the end of their turns.' },
     { level: 14, name: 'Faithful Summons', text: 'Four dire wolves appear to defend you when you drop to 0 hit points. Once per long rest.' }
@@ -209,9 +205,7 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
 { id: 'stars', classId: 'druid', name: 'Circle of Stars', source: 'TCE 38',
   features: [
     { level: 2, name: 'Star Map', text: 'A map that acts as a spellcasting focus. You know guidance, and cast guiding bolt a number of times equal to your proficiency bonus.', grantsSpell: 'Guidance' },
-    { level: 2, name: 'Starry Form', text: 'Expend a Wild Shape use for 10 minutes of a constellation: Archer for a bonus ranged attack, Chalice for healing, Dragon for steady concentration.',
-      choice: { id: 'starryForm', label: 'Starry Form', type: 'list', count: 1,
-        from: ['Archer', 'Chalice', 'Dragon'] } },
+    { level: 2, name: 'Starry Form', text: 'Bonus action. Expend a Wild Shape use to take a starry form for 10 minutes, choosing a constellation each time: Archer for a bonus ranged attack, Chalice for healing, Dragon for steady concentration.' },
     { level: 6, name: 'Cosmic Omen', text: 'Reaction. Add or subtract 1d6 from a roll near you. Uses equal your proficiency bonus per long rest.' },
     { level: 10, name: 'Twinkling Constellations', text: 'Your Starry Form improves, and you may change constellation each turn.' },
     { level: 14, name: 'Full of Stars', text: 'While in Starry Form you are partly incorporeal, with resistance to bludgeoning, piercing, and slashing damage.' }
@@ -280,7 +274,7 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
   ],
   columns: [{ id: 'psiDie', label: 'Psionic Energy die', ramp: [[3, 'd6'], [5, 'd8'], [11, 'd10'], [17, 'd12']] }]
 },
-{ id: 'runeKnight', classId: 'fighter', name: 'Rune Knight', source: 'TCE 45',
+{ id: 'runeKnight', classId: 'fighter', name: 'Rune Knight', source: 'TCE 44',
   tools: ["Smith's tools"],
   features: [
     { level: 3, name: 'Bonus Proficiencies', text: 'Proficiency with smith\u2019s tools, and you understand Giant.' },
@@ -370,7 +364,7 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
     { level: 20, name: 'Emissary of Redemption', text: 'Resistance to all damage from other creatures, and attackers take radiant damage in return.' }
   ]
 },
-{ id: 'glory', classId: 'paladin', name: 'Oath of Glory', source: 'TCE 54',
+{ id: 'glory', classId: 'paladin', name: 'Oath of Glory', source: 'TCE 53',
   spells: { 3: ['Guiding Bolt', 'Heroism'], 5: ['Enhance Ability', 'Magic Weapon'],
             9: ['Haste', 'Protection from Energy'], 13: ['Compulsion', 'Freedom of Movement'],
             17: ['Commune', 'Flame Strike'] },
@@ -382,7 +376,7 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
     { level: 20, name: 'Living Legend', text: 'Action. For 1 minute gain Charisma-based persuasion advantage, turn a miss into a hit once per turn, and reroll failed saves. Once per long rest.' }
   ]
 },
-{ id: 'watchers', classId: 'paladin', name: 'Oath of the Watchers', source: 'TCE 56',
+{ id: 'watchers', classId: 'paladin', name: 'Oath of the Watchers', source: 'TCE 54',
   spells: { 3: ['Alarm', 'Detect Magic'], 5: ['Moonbeam', 'See Invisibility'],
             9: ['Counterspell', 'Nondetection'], 13: ['Aura of Purity', 'Banishment'],
             17: ['Hold Monster', 'Scrying'] },
@@ -442,7 +436,7 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
     { level: 15, name: 'Misty Wanderer', text: 'Cast misty step without a slot, taking a willing creature with you. Uses equal your Wisdom modifier per long rest.' }
   ]
 },
-{ id: 'swarmkeeper', classId: 'ranger', name: 'Swarmkeeper', source: 'TCE 60',
+{ id: 'swarmkeeper', classId: 'ranger', name: 'Swarmkeeper', source: 'TCE 59',
   spells: { 3: ['Mage Hand', 'Faerie Fire'], 5: ['Web'], 9: ['Gaseous Form'],
             13: ['Arcane Eye'], 17: ['Insect Plague'] },
   features: [
@@ -504,7 +498,7 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
     { level: 17, name: "Death's Friend", text: 'Wails from the Grave triggers on every Sneak Attack, and you gain a soul trinket after each long rest.' }
   ]
 },
-{ id: 'soulknife', classId: 'rogue', name: 'Soulknife', source: 'TCE 64',
+{ id: 'soulknife', classId: 'rogue', name: 'Soulknife', source: 'TCE 63',
   features: [
     { level: 3, name: 'Psionic Power', text: 'Psionic Energy dice, twice your proficiency bonus per long rest, starting at d6 and growing with level. They fuel Psi-Bolstered Knack and Psychic Whispers.' },
     { level: 3, name: 'Psychic Blades', text: 'Manifest a thrown or melee psychic blade dealing 1d6 psychic damage, with a bonus action second blade at 1d4.' },
@@ -606,7 +600,7 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
     { level: 14, name: 'Master of Hexes', text: 'Move your curse to a new creature when the cursed one dies.' }
   ]
 },
-{ id: 'fathomless', classId: 'warlock', name: 'The Fathomless', source: 'TCE 71',
+{ id: 'fathomless', classId: 'warlock', name: 'The Fathomless', source: 'TCE 72',
   expandedList: true,
   spells: { 1: ['Create or Destroy Water', 'Thunderwave'], 2: ['Gust of Wind', 'Silence'],
             3: ['Lightning Bolt', 'Sleet Storm'], 4: ['Control Water', 'Summon Elemental'],
@@ -675,7 +669,7 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
 },
 
 /* ============================ ARTIFICER ============================ */
-{ id: 'alchemist', classId: 'artificer', name: 'Alchemist', source: 'TCE 18',
+{ id: 'alchemist', classId: 'artificer', name: 'Alchemist', source: 'TCE 14',
   tools: ["Alchemist's supplies"],
   spells: { 3: ['Healing Word', 'Ray of Sickness'], 5: ['Flaming Sphere', 'Melf\u2019s Acid Arrow'],
             9: ['Gaseous Form', 'Mass Healing Word'], 13: ['Blight', 'Death Ward'],
@@ -688,7 +682,7 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
     { level: 15, name: 'Chemical Mastery', text: 'Resistance to acid and poison damage, immunity to the poisoned condition, and free casting of greater restoration and heal.' }
   ]
 },
-{ id: 'armorer', classId: 'artificer', name: 'Armorer', source: 'TCE 19',
+{ id: 'armorer', classId: 'artificer', name: 'Armorer', source: 'TCE 15',
   armor: ['Heavy armor'], tools: ["Smith's tools"],
   spells: { 3: ['Magic Missile', 'Thunderwave'], 5: ['Mirror Image', 'Shatter'],
             9: ['Hypnotic Pattern', 'Lightning Bolt'], 13: ['Fire Shield', 'Greater Invisibility'],
@@ -704,7 +698,7 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
     { level: 15, name: 'Perfected Armor', text: 'Your model improves: Guardian pulls creatures to you, Infiltrator staggers and damages them.' }
   ]
 },
-{ id: 'artillerist', classId: 'artificer', name: 'Artillerist', source: 'TCE 20',
+{ id: 'artillerist', classId: 'artificer', name: 'Artillerist', source: 'TCE 17',
   tools: ["Woodcarver's tools"],
   spells: { 3: ['Shield', 'Thunderwave'], 5: ['Scorching Ray', 'Shatter'],
             9: ['Fireball', 'Wind Wall'], 13: ['Ice Storm', 'Wall of Fire'],
@@ -717,7 +711,7 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
     { level: 15, name: 'Fortified Position', text: 'You and allies gain half cover near your cannon, and you may have two at once.' }
   ]
 },
-{ id: 'battleSmith', classId: 'artificer', name: 'Battle Smith', source: 'TCE 21',
+{ id: 'battleSmith', classId: 'artificer', name: 'Battle Smith', source: 'TCE 18',
   tools: ["Smith's tools"],
   spells: { 3: ['Heroism', 'Shield'], 5: ['Branding Smite', 'Warding Bond'],
             9: ['Aura of Vitality', 'Conjure Barrage'], 13: ['Aura of Purity', 'Fire Shield'],

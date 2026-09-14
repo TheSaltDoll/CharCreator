@@ -8,13 +8,13 @@ window.DND = window.DND || {};
 DND.FIGHTING_STYLES = [
   { id: 'archery', name: 'Archery', source: 'PHB 72', classes: ['fighter', 'ranger'],
     note: '+2 to attack rolls with ranged weapons.' },
-  { id: 'blessedWarrior', name: 'Blessed Warrior', source: 'TCE 41', classes: ['paladin'], optional: true,
+  { id: 'blessedWarrior', name: 'Blessed Warrior', source: 'TCE 52', classes: ['paladin'], optional: true,
     note: 'Learn two cleric cantrips. Charisma is your spellcasting ability for them.' },
   { id: 'blindFighting', name: 'Blind Fighting', source: 'TCE 41', classes: ['fighter', 'paladin', 'ranger'], optional: true,
     note: 'Blindsight to 10 feet. You can see anything not behind total cover, even while blinded.' },
   { id: 'defense', name: 'Defense', source: 'PHB 72', classes: ['fighter', 'paladin', 'ranger'],
     note: '+1 AC while wearing armor.', acWhileArmored: 1 },
-  { id: 'druidicWarrior', name: 'Druidic Warrior', source: 'TCE 41', classes: ['ranger'], optional: true,
+  { id: 'druidicWarrior', name: 'Druidic Warrior', source: 'TCE 56', classes: ['ranger'], optional: true,
     note: 'Learn two druid cantrips. Wisdom is your spellcasting ability for them.' },
   { id: 'dueling', name: 'Dueling', source: 'PHB 72', classes: ['fighter', 'paladin', 'ranger'],
     note: '+2 damage with a one-handed melee weapon when no other weapon is held.' },
@@ -45,9 +45,9 @@ DND.METAMAGIC = [
   { id: 'extended', name: 'Extended Spell', source: 'PHB 102', note: '1 sorcery point. Double the duration, to a maximum of 24 hours.' },
   { id: 'heightened', name: 'Heightened Spell', source: 'PHB 102', note: '3 sorcery points. One target has disadvantage on its first save against the spell.' },
   { id: 'quickened', name: 'Quickened Spell', source: 'PHB 102', note: '2 sorcery points. Cast a 1-action spell as a bonus action.' },
-  { id: 'seeking', name: 'Seeking Spell', source: 'TCE 66', optional: true, note: '2 sorcery points. Reroll a missed spell attack.' },
+  { id: 'seeking', name: 'Seeking Spell', source: 'TCE 65', optional: true, note: '2 sorcery points. Reroll a missed spell attack.' },
   { id: 'subtle', name: 'Subtle Spell', source: 'PHB 102', note: '1 sorcery point. Cast without verbal or somatic components.' },
-  { id: 'transmuted', name: 'Transmuted Spell', source: 'TCE 66', optional: true, note: '1 sorcery point. Change acid, cold, fire, lightning, poison, or thunder damage to another of those types.' },
+  { id: 'transmuted', name: 'Transmuted Spell', source: 'TCE 65', optional: true, note: '1 sorcery point. Change acid, cold, fire, lightning, poison, or thunder damage to another of those types.' },
   { id: 'twinned', name: 'Twinned Spell', source: 'PHB 102', note: 'Sorcery points equal to the spell level, minimum 1. Target a second creature with a single-target spell.' }
 ];
 
@@ -126,22 +126,22 @@ DND.INVOCATIONS = [
    Artificer Infusions. TCE 14.
    --------------------------------------------------------------- */
 DND.INFUSIONS = [
-  { id: 'arcanePropulsionArmor', name: 'Arcane Propulsion Armor', source: 'TCE 14', level: 14, note: '+5 feet speed, armor cannot be removed against your will, and a magical gauntlet you can hurl and recall.' },
-  { id: 'armorOfMagicalStrength', name: 'Armor of Magical Strength', source: 'TCE 14', level: 10, note: 'Armor with charges equal to your Intelligence modifier; spend them for Strength checks and saves, or to avoid being knocked prone.' },
-  { id: 'bootsOfTheWindingPath', name: 'Boots of the Winding Path', source: 'TCE 15', level: 6, note: 'Teleport up to 15 feet to an unoccupied space you can see.' },
-  { id: 'enhancedArcaneFocus', name: 'Enhanced Arcane Focus', source: 'TCE 15', note: '+1 to spell attack rolls, rising to +2 at 10th level, and you ignore half cover.' },
-  { id: 'enhancedDefense', name: 'Enhanced Defense', source: 'TCE 15', note: '+1 AC from a suit of armor or a shield, rising to +2 at 10th level.' },
-  { id: 'enhancedWeapon', name: 'Enhanced Weapon', source: 'TCE 15', note: '+1 to attack and damage rolls, rising to +2 at 10th level.' },
-  { id: 'helmOfAwareness', name: 'Helm of Awareness', source: 'TCE 15', level: 10, note: 'Advantage on initiative. You cannot be surprised while conscious.' },
-  { id: 'homunculusServant', name: 'Homunculus Servant', source: 'TCE 15', note: 'A Tiny construct companion that acts on your turn and shares your proficiency bonus.' },
-  { id: 'mindSharpener', name: 'Mind Sharpener', source: 'TCE 16', note: 'Four charges. Spend one to succeed on a concentration save.' },
-  { id: 'radiantWeapon', name: 'Radiant Weapon', source: 'TCE 16', level: 6, note: '+1 weapon that sheds light and can blind an attacker as a reaction.' },
-  { id: 'repeatingShot', name: 'Repeating Shot', source: 'TCE 16', note: '+1 ammunition weapon that generates its own ammunition and ignores the loading property.' },
-  { id: 'replicateMagicItem', name: 'Replicate Magic Item', source: 'TCE 16', repeatable: true, note: 'Reproduce a particular magic item from the replicable items tables. Take this infusion more than once for different items.' },
-  { id: 'repulsionShield', name: 'Repulsion Shield', source: 'TCE 17', level: 6, note: '+1 shield with charges to push an attacker 15 feet away.' },
-  { id: 'resistantArmor', name: 'Resistant Armor', source: 'TCE 17', level: 6, note: 'Armor granting resistance to one damage type of your choice.' },
-  { id: 'returningWeapon', name: 'Returning Weapon', source: 'TCE 17', note: '+1 thrown weapon that returns to your hand after the attack.' },
-  { id: 'spellRefuelingRing', name: 'Spell-Refueling Ring', source: 'TCE 17', level: 6, note: 'Recover one expended spell slot of 3rd level or lower. Once per day.' }
+  { id: 'arcanePropulsionArmor', name: 'Arcane Propulsion Armor', source: 'TCE 20', level: 14, note: '+5 feet speed, armor cannot be removed against your will, and a magical gauntlet you can hurl and recall.' },
+  { id: 'armorOfMagicalStrength', name: 'Armor of Magical Strength', source: 'TCE 20', level: 10, note: 'Armor with charges equal to your Intelligence modifier; spend them for Strength checks and saves, or to avoid being knocked prone.' },
+  { id: 'bootsOfTheWindingPath', name: 'Boots of the Winding Path', source: 'TCE 21', level: 6, note: 'Teleport up to 15 feet to an unoccupied space you can see.' },
+  { id: 'enhancedArcaneFocus', name: 'Enhanced Arcane Focus', source: 'TCE 21', note: '+1 to spell attack rolls, rising to +2 at 10th level, and you ignore half cover.' },
+  { id: 'enhancedDefense', name: 'Enhanced Defense', source: 'TCE 21', note: '+1 AC from a suit of armor or a shield, rising to +2 at 10th level.' },
+  { id: 'enhancedWeapon', name: 'Enhanced Weapon', source: 'TCE 21', note: '+1 to attack and damage rolls, rising to +2 at 10th level.' },
+  { id: 'helmOfAwareness', name: 'Helm of Awareness', source: 'TCE 21', level: 10, note: 'Advantage on initiative. You cannot be surprised while conscious.' },
+  { id: 'homunculusServant', name: 'Homunculus Servant', source: 'TCE 21', note: 'A Tiny construct companion that acts on your turn and shares your proficiency bonus.' },
+  { id: 'mindSharpener', name: 'Mind Sharpener', source: 'TCE 22', note: 'Four charges. Spend one to succeed on a concentration save.' },
+  { id: 'radiantWeapon', name: 'Radiant Weapon', source: 'TCE 22', level: 6, note: '+1 weapon that sheds light and can blind an attacker as a reaction.' },
+  { id: 'repeatingShot', name: 'Repeating Shot', source: 'TCE 22', note: '+1 ammunition weapon that generates its own ammunition and ignores the loading property.' },
+  { id: 'replicateMagicItem', name: 'Replicate Magic Item', source: 'TCE 22', repeatable: true, note: 'Reproduce a particular magic item from the replicable items tables. Take this infusion more than once for different items.' },
+  { id: 'repulsionShield', name: 'Repulsion Shield', source: 'TCE 23', level: 6, note: '+1 shield with charges to push an attacker 15 feet away.' },
+  { id: 'resistantArmor', name: 'Resistant Armor', source: 'TCE 23', level: 6, note: 'Armor granting resistance to one damage type of your choice.' },
+  { id: 'returningWeapon', name: 'Returning Weapon', source: 'TCE 23', note: '+1 thrown weapon that returns to your hand after the attack.' },
+  { id: 'spellRefuelingRing', name: 'Spell-Refueling Ring', source: 'TCE 23', level: 6, note: 'Recover one expended spell slot of 3rd level or lower. Once per day.' }
 ];
 
 /* ---------------------------------------------------------------
@@ -192,42 +192,42 @@ DND.FAVORED_TERRAINS = [
    level; `replaces` names the standard feature it supersedes.
    --------------------------------------------------------------- */
 DND.OPTIONAL_CLASS_FEATURES = [
-  { classId: 'barbarian', level: 3, name: 'Primal Knowledge', source: 'TCE 9',
+  { classId: 'barbarian', level: 3, name: 'Primal Knowledge', source: 'TCE 24',
     note: 'Gain proficiency in one more barbarian skill, and make certain Strength checks while raging.',
     choice: { id: 'primalKnowledge', label: 'Skill proficiency', type: 'skill',
       from: ['animalHandling', 'athletics', 'intimidation', 'nature', 'perception', 'survival'], count: 1 } },
-  { classId: 'barbarian', level: 7, name: 'Instinctive Pounce', source: 'TCE 9',
+  { classId: 'barbarian', level: 7, name: 'Instinctive Pounce', source: 'TCE 24',
     note: 'When you enter your rage as a bonus action, move up to half your speed.' },
 
-  { classId: 'bard', level: 1, name: 'Additional Bard Spells', source: 'TCE 12',
+  { classId: 'bard', level: 1, name: 'Additional Bard Spells', source: 'TCE 27',
     note: 'An expanded list of bard spells becomes available to you.' },
-  { classId: 'bard', level: 4, name: 'Bardic Versatility', source: 'TCE 12',
+  { classId: 'bard', level: 4, name: 'Bardic Versatility', source: 'TCE 27',
     note: 'On an Ability Score Improvement, swap a cantrip or move one Expertise.' },
 
-  { classId: 'cleric', level: 2, name: 'Harness Divine Power', source: 'TCE 19',
+  { classId: 'cleric', level: 2, name: 'Harness Divine Power', source: 'TCE 30',
     note: 'Bonus action. Expend a use of Channel Divinity to recover a spell slot. Uses scale with proficiency bonus.' },
-  { classId: 'cleric', level: 4, name: 'Cantrip Versatility', source: 'TCE 19',
+  { classId: 'cleric', level: 4, name: 'Cantrip Versatility', source: 'TCE 31',
     note: 'On an Ability Score Improvement, replace one cleric cantrip.' },
-  { classId: 'cleric', level: 8, name: 'Blessed Strikes', source: 'TCE 19',
+  { classId: 'cleric', level: 8, name: 'Blessed Strikes', source: 'TCE 31',
     note: 'Replaces Divine Strike or Potent Spellcasting. Add 1d8 radiant damage once per turn.' },
 
-  { classId: 'druid', level: 1, name: 'Additional Druid Spells', source: 'TCE 20',
+  { classId: 'druid', level: 1, name: 'Additional Druid Spells', source: 'TCE 35',
     note: 'An expanded list of druid spells becomes available to you.' },
-  { classId: 'druid', level: 2, name: 'Wild Companion', source: 'TCE 20',
+  { classId: 'druid', level: 2, name: 'Wild Companion', source: 'TCE 35',
     note: 'Expend a Wild Shape use to cast find familiar without material components. The familiar is a fey.' },
-  { classId: 'druid', level: 4, name: 'Cantrip Versatility', source: 'TCE 20',
+  { classId: 'druid', level: 4, name: 'Cantrip Versatility', source: 'TCE 36',
     note: 'On an Ability Score Improvement, replace one druid cantrip.' },
 
   { classId: 'fighter', level: 4, name: 'Martial Versatility', source: 'TCE 41',
     note: 'On an Ability Score Improvement, swap a Fighting Style or a maneuver.' },
 
-  { classId: 'monk', level: 2, name: 'Dedicated Weapon', source: 'TCE 47',
+  { classId: 'monk', level: 2, name: 'Dedicated Weapon', source: 'TCE 48',
     note: 'Treat one simple or martial weapon as a monk weapon after a short rest.' },
-  { classId: 'monk', level: 3, name: 'Ki-Fueled Attack', source: 'TCE 47',
+  { classId: 'monk', level: 3, name: 'Ki-Fueled Attack', source: 'TCE 48',
     note: 'After spending ki on a spell or feature, make one unarmed or monk weapon attack as a bonus action.' },
-  { classId: 'monk', level: 4, name: 'Quickened Healing', source: 'TCE 47',
+  { classId: 'monk', level: 4, name: 'Quickened Healing', source: 'TCE 48',
     note: 'Action. Spend 2 ki to roll your Martial Arts die and regain that many hit points plus your proficiency bonus.' },
-  { classId: 'monk', level: 5, name: 'Focused Aim', source: 'TCE 47',
+  { classId: 'monk', level: 5, name: 'Focused Aim', source: 'TCE 48',
     note: 'On a miss, spend 1 to 3 ki to add 2 to the attack roll per point.' },
 
   { classId: 'paladin', level: 1, name: 'Additional Paladin Spells', source: 'TCE 52',
@@ -249,7 +249,7 @@ DND.OPTIONAL_CLASS_FEATURES = [
   { classId: 'ranger', level: 3, name: 'Primal Awareness', source: 'TCE 57',
     replaces: 'Primeval Awareness',
     note: 'Cast speak with animals, beast sense, and later spells once per long rest each, without a slot.' },
-  { classId: 'ranger', level: 4, name: 'Martial Versatility', source: 'TCE 58',
+  { classId: 'ranger', level: 4, name: 'Martial Versatility', source: 'TCE 56',
     note: 'On an Ability Score Improvement, swap your Fighting Style.' },
   { classId: 'ranger', level: 10, name: "Nature's Veil", source: 'TCE 58',
     note: 'Bonus action. Turn invisible until the end of your next turn. Uses equal your proficiency bonus.' },
@@ -262,7 +262,7 @@ DND.OPTIONAL_CLASS_FEATURES = [
   { classId: 'sorcerer', level: 4, name: 'Sorcerous Versatility', source: 'TCE 66',
     note: 'On an Ability Score Improvement, swap a Metamagic option or a cantrip.' },
 
-  { classId: 'warlock', level: 1, name: 'Additional Warlock Spells', source: 'TCE 69',
+  { classId: 'warlock', level: 1, name: 'Additional Warlock Spells', source: 'TCE 70',
     note: 'An expanded list of warlock spells becomes available to you.' },
   { classId: 'warlock', level: 4, name: 'Eldritch Versatility', source: 'TCE 71',
     note: 'On an Ability Score Improvement, swap a cantrip, an Eldritch Invocation, or your Pact Boon.' },

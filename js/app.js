@@ -64,7 +64,7 @@
     clear(box);
 
     box.appendChild(DND.UI.toggle({
-      label: 'Customizing Your Origin', source: 'TCE 8',
+      label: 'Customizing Your Origin', source: 'TCE 7',
       description: 'Reassign racial ability increases to any scores, swap racial languages, and trade racial proficiencies.',
       checked: state.options.tashaOrigin,
       onchange: function (v) { update(function () { state.options.tashaOrigin = v; }); }
@@ -125,7 +125,7 @@
     box.appendChild(bookRow);
 
     box.appendChild(DND.UI.toggle({
-      label: 'Optional Class Features', source: 'TCE 9',
+      label: 'Optional Class Features', source: 'TCE 7',
       description: 'Extra and replacement class features, such as the ranger\u2019s Deft Explorer and the rogue\u2019s Steady Aim.',
       checked: state.options.optionalClassFeatures,
       onchange: function (v) {
@@ -884,6 +884,7 @@
     DND.Engine.featureChoices(ce).forEach(function (fc) {
       var def = fc.def, count = fc.count;
       if (!count) return;
+      if (fc.fromSubclass) return;   /* drawn inside the subclass block instead */
 
       renderOneChoice(box, def, count, cls, entry, null);
     });

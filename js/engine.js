@@ -703,6 +703,18 @@ DND.Engine = (function () {
       return f ? f.name : id;
     }
     if (type === 'skill' || type === 'proficientSkill') return prettyName(id);
+    if (type === 'ancestry') {
+      var d = DND.DRACONIC_ANCESTRY.filter(function (x) { return x.id === id; })[0];
+      return d ? d.name : id;
+    }
+    if (type === 'arcaneShot') {
+      var a = DND.findOption(DND.ARCANE_SHOTS, id);
+      return a ? a.name : id;
+    }
+    if (type === 'rune') {
+      var r = DND.findOption(DND.RUNES, id);
+      return r ? r.name : id;
+    }
     return id;
   }
 

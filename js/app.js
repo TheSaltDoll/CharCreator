@@ -893,7 +893,7 @@
   }
 
   function renderOneChoice(box, def, count, cls, entry, sub) {
-    {
+    try {
       var ce = { cls: cls, entry: entry, level: Math.max(1, parseInt(entry.level, 10) || 1) };
       var opts = optionsForChoice(def, cls, entry, ce.level);
       if (count === 1) {
@@ -940,6 +940,13 @@
         })(i);
       }
       box.appendChild(wrap);
+    } catch (err) {
+      /* Losing one picker is recoverable; losing the whole Class and level
+         step is not, so report it in place and carry on rendering. */
+      if (window.console) console.error('Could not render choice', def, err);
+      box.appendChild(el('p', { class: 'field-hint choice-error',
+        text: 'This choice (' + (def && def.label ? def.label : 'unnamed') +
+          ') could not be displayed. The rest of your character is unaffected.' }));
     }
   }
 
@@ -1044,6 +1051,12 @@
         .filter(function (id) { return DND.SPELLS[id].level === def.spellLevel; })
         .map(function (id) { return { value: String(id), label: DND.SPELLS[id].name }; });
     }
+    if (def.type === 'tool') return DND.UI.toolOptions(def.from);
+    if (def.type === 'ancestry') {
+      return DND.DRACONIC_ANCESTRY.map(function (d) {
+        return { value: d.id, label: d.name + ' \u2014 ' + d.damage + ', ' + d.breath };
+      });
+    }
     if (def.type === 'favoredEnemy') return DND.FAVORED_ENEMIES.map(DND.UI.strOpt);
     if (def.type === 'terrain') return DND.FAVORED_TERRAINS.map(DND.UI.strOpt);
     if (def.type === 'proficientSkill') {
@@ -1055,7 +1068,15 @@
       return DND.SKILLS.filter(function (s) { return pool.indexOf(s.id) !== -1; })
         .map(function (s) { return { value: s.id, label: s.name }; });
     }
-    return (def.from || []).map(DND.UI.strOpt);
+    /* `from` is a list for plain choices but a tool-category name for tools.
+       Anything else is a data error, so surface it rather than throwing. */
+    if (Array.isArray(def.from)) return def.from.map(DND.UI.strOpt);
+    if (typeof def.from === 'string') return DND.UI.toolOptions(def.from);
+    if (window.console) {
+      console.warn('Choice has no usable options: id=' + def.id + ' type=' + def.type +
+        ' from=' + JSON.stringify(def.from));
+    }
+    return [];
   }
 
   function noteForChoice(def, value) {

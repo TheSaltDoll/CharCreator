@@ -936,3 +936,9 @@ select { cursor: pointer; }
   padding-left: .7rem;
   border-left: 2px solid var(--rule);
 }
+
+.choice-error {
+  padding-left: .7rem;
+  border-left: 2px solid var(--oxblood);
+  color: var(--oxblood);
+}

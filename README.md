@@ -64,8 +64,21 @@ bonus spells.
 
 **Spells.** All 477 spells from the three books, with level, school, casting time,
 range, components, material, duration, and the ritual and concentration tags. Each
-class picks from its own list, filtered to the levels it can cast and capped at the
-number it is allowed. Wizards copy into a spellbook and prepare from it; bards draw
+class picks from its own list, filtered to the levels it may learn and capped at the
+number it is allowed.
+
+Classes that learn their spells on level-up — sorcerer, bard, ranger, warlock,
+Eldritch Knight, Arcane Trickster — are held to sets they could actually have
+assembled. A spell can only be picked at a level that could already cast it, and
+each level offers one new spell plus one replacement, so a 3rd-level sorcerer knows
+at most two 2nd-level spells and an 8th-level sorcerer at most four 4th-level ones.
+The list shows how many of each level remain open and strikes through the rest.
+Preparing classes are not restricted this way, since they rebuild the list on a long
+rest, and a wizard's spellbook can always grow by what they find in play.
+
+Multiclass casters pool their spell slots but not their spell choices. A ranger
+4/wizard 3 casts from the combined table, yet the spellbook still holds nothing above
+2nd level, exactly as the Player's Handbook example has it. Wizards copy into a spellbook and prepare from it; bards draw
 Magical Secrets from every list in the game. Spell descriptions are deliberately not
 included — look them up in the book.
 

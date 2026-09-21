@@ -1353,7 +1353,7 @@
     if (p.spellbook) {
       pickers.push(spellPicker({
         title: 'Spellbook', limit: p.bookLimit, get: function () { return entry.spells.book; },
-        pool: function () { return pool; }, minLevel: 1, maxLevel: p.maxSpellLevel,
+        pool: function () { return pool; }, minLevel: 1, maxLevel: p.maxKnownLevel,
         key: cls.id + ':book', siblings: pickers,
         note: 'Six spells at 1st level, and two more each time you gain a wizard level. Anything you find and copy in play is on top of these.',
         onRemove: function (id) {
@@ -1363,7 +1363,7 @@
       }));
       pickers.push(spellPicker({
         title: 'Prepared', limit: p.limit, get: function () { return entry.spells.known; },
-        pool: function () { return entry.spells.book; }, minLevel: 1, maxLevel: p.maxSpellLevel,
+        pool: function () { return entry.spells.book; }, minLevel: 1, maxLevel: p.maxKnownLevel,
         key: cls.id + ':prep', siblings: pickers,
         note: 'Chosen from your spellbook. You may swap these after a long rest.',
         empty: 'Copy some spells into your spellbook first.'
@@ -1372,11 +1372,12 @@
       pickers.push(spellPicker({
         title: p.limitLabel === 'prepared' ? 'Prepared' : 'Spells known',
         limit: p.limit, get: function () { return entry.spells.known; },
-        pool: function () { return pool; }, minLevel: 1, maxLevel: p.maxSpellLevel,
+        pool: function () { return pool; }, minLevel: 1, maxLevel: p.maxKnownLevel,
         key: cls.id + ':known', siblings: pickers,
+        caps: p.knownCaps,
         note: p.limitLabel === 'prepared'
           ? 'You may swap these after a long rest.'
-          : 'You may replace one when you gain a level in this class.'
+          : 'You may replace one when you gain a level in this class. Each spell had to be learned at a level that could already cast it, so the higher levels are limited to what you could have picked up along the way.'
       }));
     }
 
@@ -1402,9 +1403,11 @@
       });
       pickers.push(spellPicker({
         title: 'Magical Secrets', limit: p.secretsLimit, get: function () { return entry.spells.secrets; },
-        pool: function () { return everything; }, minLevel: 0, maxLevel: p.maxSpellLevel,
+        pool: function () { return everything; }, minLevel: 0,
+        maxLevel: p.secretsCaps ? p.secretsCaps.top : p.maxKnownLevel,
         key: cls.id + ':secrets', siblings: pickers,
-        note: 'Any spell from any class list. These count as bard spells for you, and do not count against your spells known.'
+        caps: p.secretsCaps,
+        note: 'Any spell from any class list. These count as bard spells for you, and do not count against your spells known. Each pair is fixed at the level you gained it, so the earlier pairs stay at the spell levels you could cast then.'
       }));
     }
 
@@ -1460,7 +1463,48 @@
       });
     }
 
-    var items = {};      /* spell id -> {label, checkbox} */
+    /* Ceilings on how many spells of each level or higher this picker may
+       hold, from how the class actually acquires them. Absent for preparing
+       classes, where any legal level goes. */
+    function capAt(lv) {
+      if (!opts.caps || lv < 1) return Infinity;
+      return lv <= opts.caps.top ? opts.caps.caps[lv] : 0;
+    }
+
+    /* chosen counts, bucketed as "this level or higher" so a single pass
+       answers every ceiling at once. */
+    function tally() {
+      var at = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+      opts.get().forEach(function (id) {
+        var sp = DND.SPELLS[id];
+        if (!sp) return;
+        for (var j = 1; j <= sp.level; j++) at[j]++;
+      });
+      return at;
+    }
+
+    /* Adding a spell of this level raises every bucket at or below it, so
+       each one has to have room. Returns the level that objects, or 0. */
+    function capBlocks(at, lv) {
+      if (!opts.caps || lv < 1) return 0;
+      for (var j = 1; j <= lv; j++) {
+        if (at[j] + 1 > capAt(j)) return j;
+      }
+      return 0;
+    }
+
+    function capReason(lv, blockedAt) {
+      var n = capAt(blockedAt);
+      if (!n) {
+        return 'You could not yet have learned a spell of this level at this class level.';
+      }
+      var at = blockedAt === lv ? DND.ordinal(lv) + '-level' : DND.ordinal(blockedAt) + '-level or higher';
+      return 'You can know at most ' + n + ' ' + at + ' spell' + (n === 1 ? '' : 's') +
+        ' at this class level, given when you would have learned them.';
+    }
+
+    var items = {};      /* spell id -> {label, checkbox, level, baseTitle} */
+    var capEls = {};     /* spell level -> the "2 / 4" badge on its heading */
     var lastSig = null;  /* pool signature, so the list is only rebuilt when it changes */
 
     function toggle(id, on) {
@@ -1504,12 +1548,25 @@
     function syncItems() {
       var chosen = opts.get();
       var full = chosen.length >= opts.limit;
+      var at = tally();
       Object.keys(items).forEach(function (id) {
         var it = items[id];
         var on = chosen.indexOf(Number(id)) !== -1;
+        /* A full list already trips every ceiling, so check it first and
+           report the simpler reason. */
+        var isFull = !on && full;
+        var blockedAt = (on || isFull) ? 0 : capBlocks(at, it.level);
         it.cb.checked = on;
-        it.cb.disabled = full && !on;
-        it.label.className = 'sp-item' + (on ? ' on' : '') + (full && !on ? ' full' : '');
+        it.cb.disabled = isFull || !!blockedAt;
+        it.label.className = 'sp-item' + (on ? ' on' : '') +
+          (blockedAt ? ' capped' : (isFull ? ' full' : ''));
+        it.label.title = blockedAt ? capReason(it.level, blockedAt) : it.baseTitle;
+      });
+      Object.keys(capEls).forEach(function (lv) {
+        var c = capEls[lv];
+        c.node.textContent = at[lv] + ' / ' + c.cap;
+        c.node.className = 'sp-lvl-cap' +
+          (at[lv] > c.cap ? ' over' : (at[lv] >= c.cap ? ' done' : ''));
       });
     }
 
@@ -1519,6 +1576,7 @@
       var avail = available();
       lastSig = avail.join(',');
       items = {};
+      capEls = {};
       clear(listBox);
 
       if (!avail.length) {
@@ -1544,30 +1602,46 @@
         return;
       }
 
+      var at = tally();
+
       levels.forEach(function (lv) {
-        listBox.appendChild(el('div', { class: 'sp-lvl',
-          text: lv === 0 ? 'Cantrips' : DND.ordinal(lv) + ' level' }));
+        var head = el('div', { class: 'sp-lvl',
+          text: lv === 0 ? 'Cantrips' : DND.ordinal(lv) + ' level' });
+        var cap = capAt(lv);
+        if (cap !== Infinity && cap < opts.limit) {
+          var badge = el('span', { class: 'sp-lvl-cap',
+            text: at[lv] + ' / ' + cap,
+            title: 'At this class level you can know at most ' + cap + ' spell' +
+              (cap === 1 ? '' : 's') + ' of ' + DND.ordinal(lv) + ' level or higher.' });
+          capEls[lv] = { node: badge, cap: cap };
+          head.appendChild(badge);
+        }
+        listBox.appendChild(head);
         var grid = el('div', { class: 'sp-grid' });
         byLevel[lv].sort(function (a, b) { return a.name.localeCompare(b.name); }).forEach(function (sp) {
           var on = chosen.indexOf(sp.id) !== -1;
-          var full = chosen.length >= opts.limit && !on;
+          var isFull = !on && chosen.length >= opts.limit;
+          var blockedAt = (on || isFull) ? 0 : capBlocks(at, sp.level);
+          var stop = isFull || !!blockedAt;
           var marks = [];
           if (sp.concentration) marks.push('C');
           if (sp.ritual) marks.push('R');
-          var lbl = el('label', {
-            class: 'sp-item' + (on ? ' on' : '') + (full ? ' full' : ''),
-            title: sp.school + ' \u00b7 ' + sp.castingTime + ' \u00b7 ' + sp.range +
+          var baseTitle = sp.school + ' \u00b7 ' + sp.castingTime + ' \u00b7 ' + sp.range +
               ' \u00b7 ' + sp.components + ' \u00b7 ' + sp.duration + ' \u00b7 ' + sp.source +
-              (sp.material ? '\nMaterial: ' + sp.material : '')
+              (sp.material ? '\nMaterial: ' + sp.material : '');
+          var lbl = el('label', {
+            class: 'sp-item' + (on ? ' on' : '') +
+              (blockedAt ? ' capped' : (isFull ? ' full' : '')),
+            title: blockedAt ? capReason(sp.level, blockedAt) : baseTitle
           });
           var cb = el('input', { type: 'checkbox' });
           cb.checked = on;
-          cb.disabled = full;
+          cb.disabled = stop;
           cb.addEventListener('change', function () { toggle(sp.id, cb.checked); });
           lbl.appendChild(cb);
           lbl.appendChild(el('span', { class: 'sp-name', text: sp.name }));
           if (marks.length) lbl.appendChild(el('span', { class: 'sp-mark', text: marks.join('') }));
-          items[sp.id] = { label: lbl, cb: cb };
+          items[sp.id] = { label: lbl, cb: cb, level: sp.level, baseTitle: baseTitle };
           grid.appendChild(lbl);
         });
         listBox.appendChild(grid);

@@ -829,6 +829,10 @@ select { cursor: pointer; }
 .sp-lvl {
   position: sticky;
   top: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
   background: var(--panel);
   padding: .35rem 0 .2rem;
   font-size: .68rem;
@@ -838,6 +842,17 @@ select { cursor: pointer; }
   border-bottom: 1px solid var(--rule);
   z-index: 1;
 }
+
+/* How many of this level or higher are still open to you. Only shown where
+   the acquisition rules bite — see the caps note in js/app.js. */
+.sp-lvl-cap {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .04em;
+  color: var(--brass);
+  flex: none;
+}
+.sp-lvl-cap.done { color: var(--slate); }
+.sp-lvl-cap.over { color: var(--oxblood); font-weight: 600; }
 
 .sp-grid {
   display: grid;
@@ -860,6 +875,10 @@ select { cursor: pointer; }
 .sp-item.on { color: var(--ink); font-weight: 500; }
 .sp-item.full { opacity: .4; cursor: default; }
 .sp-item.full:hover { background: none; }
+/* Barred not because the list is full but because you could never have
+   learned it by this level. Distinguished so the two read differently. */
+.sp-item.capped { opacity: .45; cursor: help; text-decoration: line-through .5px; }
+.sp-item.capped:hover { background: none; }
 .sp-item input { margin: 0; flex: none; }
 .sp-name { flex: 1; }
 .sp-mark {

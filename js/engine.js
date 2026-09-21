@@ -755,6 +755,71 @@ DND.Engine = (function () {
     };
   }
 
+  /* The highest spell level this caster could cast at a given level of its own
+     class, ignoring any multiclass slot pooling. Spells known are determined
+     "as if you were a single-classed member of that class" (PHB 164). */
+  function ownMaxSpellLevel(sc, classLevel) {
+    if (classLevel < 1) return 0;
+    if (sc.type === 'pact') {
+      var pm = DND.PACT_MAGIC[classLevel];
+      return pm ? pm.level : 0;
+    }
+    var cl = DND.casterLevel(sc.type, classLevel, false);
+    return cl > 0 ? DND.SLOTS_FULL[cl].length : 0;
+  }
+
+  /* How many of a known-caster's spells may be of each level or higher.
+
+     A class that learns its spells on level-up cannot hold an arbitrary set.
+     Every spell had to be acquired at some class level, and a spell may only
+     be picked at a level that can already cast it. The only two ways to
+     acquire one are that level's new spell and that level's single
+     replacement, so for spell level j, with L0 the first class level holding
+     a slot of that level:
+
+       cap(j) = (spells known now - spells known before L0)   <- new picks
+              + (one replacement per level from L0 to now)    <- swaps
+
+     capped at the total known. Level 1 grants no replacement, there being
+     nothing yet to replace. PHB 165 states the rule for the sorcerer; bard,
+     ranger, warlock, Eldritch Knight and Arcane Trickster all repeat it. */
+  function knownSpellCaps(sc, classLevel) {
+    if (!sc || !sc.known || sc.prepares) return null;
+    var total = sc.known[classLevel] || 0;
+    if (!total) return null;
+
+    var top = ownMaxSpellLevel(sc, classLevel);
+    var caps = [0];
+    for (var j = 1; j <= top; j++) {
+      var L0 = 1;
+      while (L0 <= classLevel && ownMaxSpellLevel(sc, L0) < j) L0++;
+      var gained = total - (sc.known[L0 - 1] || 0);
+      var swaps = Math.max(0, classLevel - Math.max(L0, 2) + 1);
+      caps[j] = Math.min(total, gained + swaps);
+    }
+    return { top: top, caps: caps, total: total };
+  }
+
+  /* Magical Secrets are granted in fixed batches at fixed levels and have no
+     replacement clause, so each batch is pinned to what was castable then. */
+  function grantCaps(sc, grants) {
+    if (!grants.length) return null;
+    var total = 0, top = 0;
+    grants.forEach(function (g) {
+      total += g.count;
+      top = Math.max(top, ownMaxSpellLevel(sc, g.level));
+    });
+    var caps = [0];
+    for (var j = 1; j <= top; j++) {
+      var n = 0;
+      grants.forEach(function (g) {
+        if (ownMaxSpellLevel(sc, g.level) >= j) n += g.count;
+      });
+      caps[j] = n;
+    }
+    return { top: top, caps: caps, total: total };
+  }
+
   function computeSpellcasting(state, classEntries, scores, pb) {
     /* A subclass can bring spellcasting the base class lacks — Eldritch Knight
        and Arcane Trickster both do. Treat it as if the class carried it. */
@@ -831,6 +896,12 @@ DND.Engine = (function () {
         if (own > 0) maxLv = Math.max(maxLv, DND.SLOTS_FULL[own].length);
       }
       p.maxSpellLevel = maxLv;
+
+      /* The highest level this class may *learn or prepare*, which is not the
+         same as the highest it can cast. Multiclassing pools slots but not
+         spell choices: a ranger 4/wizard 3 casts from the combined table yet
+         their spellbook still tops out at 2nd level (PHB 164). */
+      p.maxKnownLevel = ownMaxSpellLevel(ce.sc, p.level);
       p.cantripsChosen = (picks.cantrips || []).filter(function (x) { return x !== null; });
       p.spellsChosen = (picks.known || []).filter(function (x) { return x !== null; });
       p.bookChosen = (picks.book || []).filter(function (x) { return x !== null; });
@@ -852,15 +923,27 @@ DND.Engine = (function () {
         });
       }
       p.secretsLimit = 0;
+      var secretGrants = [];
       if (p.classId === 'bard') {
-        [10, 14, 18].forEach(function (lv) { if (p.level >= lv) p.secretsLimit += 2; });
+        [10, 14, 18].forEach(function (lv) {
+          if (p.level >= lv) { p.secretsLimit += 2; secretGrants.push({ level: lv, count: 2 }); }
+        });
       }
       /* A subclass can hand out more Magical Secrets — College of Lore does at 6th. */
       if (sub2) {
         (sub2.features || []).forEach(function (f) {
-          if (f.magicalSecrets && p.level >= f.level) p.secretsLimit += f.magicalSecrets;
+          if (f.magicalSecrets && p.level >= f.level) {
+            p.secretsLimit += f.magicalSecrets;
+            secretGrants.push({ level: f.level, count: f.magicalSecrets });
+          }
         });
       }
+
+      /* Which spell levels the picks may legally sit at, given how they were
+         acquired. Null for preparing classes and for the wizard's spellbook,
+         which can also be filled from scrolls and other spellbooks. */
+      p.knownCaps = knownSpellCaps(ce.sc, p.level);
+      p.secretsCaps = grantCaps(ce.sc, secretGrants);
 
       /* Mystic Arcanum: one spell of each level, from warlock 11 upward. */
       p.arcanum = [];
@@ -1045,6 +1128,27 @@ DND.Engine = (function () {
         if (p.secretsLimit && p.secretsChosen.length < p.secretsLimit) {
           out.push(p.className + ': choose ' + (p.secretsLimit - p.secretsChosen.length) + ' more Magical Secrets.');
         }
+        /* Picks made at a higher level and then left behind when the level
+           dropped, or loaded from a file, can sit above what the class could
+           have learned. Say so rather than silently allowing it. */
+        [[p.knownCaps, p.spellsChosen, 'known'],
+         [p.secretsCaps, p.secretsChosen, 'Magical Secrets']].forEach(function (pair) {
+          var caps = pair[0], chosen = pair[1];
+          if (!caps || !chosen.length) return;
+          for (var j = 1; j <= 9; j++) {
+            var cap = j <= caps.top ? caps.caps[j] : 0;
+            var n = chosen.filter(function (id) {
+              var s2 = DND.SPELLS[id]; return s2 && s2.level >= j;
+            }).length;
+            if (n > cap) {
+              out.push(p.className + ': ' + n + ' of your spells ' + pair[2] +
+                ' are ' + DND.ordinal(j) + ' level or higher, but you could only have learned ' +
+                cap + ' by this level. Drop ' + (n - cap) + '.');
+              break;
+            }
+          }
+        });
+
         (p.arcanum || []).forEach(function (a) {
           if (!a.chosen.length) {
             out.push(p.className + ': choose your ' + DND.ordinal(a.spellLevel) + '-level Mystic Arcanum.');

@@ -354,7 +354,11 @@ DND.Engine = (function () {
         }
       });
 
-      activeFeatures(ce).concat(subFeatures(ce)).forEach(function (f) {
+      /* Subclass features are credited to the subclass by name, so the sheet
+         says "Way of Mercy" rather than a bare "Monk". */
+      var subNow = subclassOf(ce), subFs = subFeatures(ce);
+      activeFeatures(ce).concat(subFs).forEach(function (f) {
+        var flabel = (subNow && subFs.indexOf(f) !== -1 ? subNow.name : cls.name) + ' \u2014 ' + f.name;
         if (f.addSave) saveProfs.push({ ability: f.addSave, source: cls.name + ' \u2014 ' + f.name });
         if (f.allSaves) allSaves = true;
         if (f.expertiseSkills) {
@@ -364,6 +368,11 @@ DND.Engine = (function () {
           });
         }
         (f.weaponCategories || []).forEach(function (w) { addWeapon(w, cls.name + ' \u2014 ' + f.name); });
+        /* Fixed grants, as opposed to choices. Not flagged as chosen: when the
+           character already has one ("if you don't already have it"), nothing
+           was wasted by the player, so there is nothing to warn about. */
+        (f.grantSkills || []).forEach(function (sk) { addSkill(sk, flabel, false); });
+        (f.grantLanguages || []).forEach(function (l) { addLang(l, flabel, false); });
       });
 
       /* subclass grants */
@@ -384,13 +393,24 @@ DND.Engine = (function () {
             if (!c) return;
             var v = (ce.entry.choices || {})[c.id];
             if (!v) return;
-            (Array.isArray(v) ? v : [v]).forEach(function (val) {
+            /* Only the picks the current level allows. Dropping a Kensei from
+               20th to 3rd leaves five stored weapons, but only two count. */
+            var n = c.countColumn ? (DND.subColumnValue(sub, c.countColumn, ce.level) || 0) : (c.count || 1);
+            (Array.isArray(v) ? v : [v]).slice(0, n).forEach(function (val) {
               if (!val) return;
               if (c.type === 'skill') {
                 addSkill(val, slabel, true);
                 if (c.expertise) expertise.push({ skill: val, source: slabel });
               } else if (c.type === 'tool') addTool(val, slabel, true);
               else if (c.type === 'language') addLang(val, slabel, true);
+              /* Kensei and Bladesinging weapons confer proficiency. Not
+                 flagged as chosen: a kensei weapon you already know still
+                 matters, as a monk weapon and for the subclass's features. */
+              else if (c.type === 'weapon') addWeapon(val, slabel);
+              else if (c.type === 'skillOrLanguage') {
+                if (val.indexOf('lang:') === 0) addLang(val.slice(5), slabel, true);
+                else addSkill(val, slabel, true);
+              }
             });
           });
         });
@@ -680,7 +700,7 @@ DND.Engine = (function () {
     featureChoices(ce).forEach(function (fc) {
       var v = (ce.entry.choices || {})[fc.def.id];
       if (!v) return;
-      var vals = Array.isArray(v) ? v.filter(Boolean) : [v];
+      var vals = Array.isArray(v) ? v.slice(0, fc.count || v.length).filter(Boolean) : [v];
       if (!vals.length) return;
       out.push({
         label: fc.def.label,
@@ -703,6 +723,11 @@ DND.Engine = (function () {
       return f ? f.name : id;
     }
     if (type === 'skill' || type === 'proficientSkill') return prettyName(id);
+    if (type === 'skillOrLanguage') {
+      if (String(id).indexOf('lang:') !== 0) return prettyName(id);
+      var lg = DND.LANGUAGES.filter(function (x) { return x.id === id.slice(5); })[0];
+      return (lg ? lg.name : id.slice(5)) + ' (language)';
+    }
     if (type === 'ancestry') {
       var d = DND.DRACONIC_ANCESTRY.filter(function (x) { return x.id === id; })[0];
       return d ? d.name : id;

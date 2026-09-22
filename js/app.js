@@ -911,7 +911,7 @@
         return;
       }
 
-      var chosen = Array.isArray(entry.choices[def.id]) ? entry.choices[def.id].slice() : [];
+      var chosen = Array.isArray(entry.choices[def.id]) ? entry.choices[def.id].slice(0, count) : [];
       var wrap = el('div', { class: 'pick-list' });
       wrap.appendChild(el('span', { class: 'field-label', text: def.label + ' \u2014 ' + count + ' known' }));
 
@@ -919,15 +919,21 @@
         (function (idx) {
           var cur = chosen[idx] || '';
           var others = chosen.filter(function (v, j) { return j !== idx && v; });
-          var list = opts.map(function (o) {
-            if (o.group) return o;
-            var repeatable = o.repeatable;
+          /* A slot can narrow the pool: the Kensei's first two picks must be
+             one melee and one ranged weapon, later ones either. */
+          var slot = (def.slots || [])[idx] || {};
+          var base = (def.type === 'weapon' && slot.kind) ? weaponOptions(def, slot.kind) : opts;
+          var mark = function (o) {
             return {
               value: o.value, label: o.label,
-              disabled: o.disabled || (!repeatable && others.indexOf(o.value) !== -1 && o.value !== cur)
+              disabled: o.disabled || (!o.repeatable && others.indexOf(o.value) !== -1 && o.value !== cur)
             };
+          };
+          /* Grouped lists used to skip this, so a weapon could be picked twice. */
+          var list = base.map(function (o) {
+            return o.group ? { group: o.group, options: o.options.map(mark) } : mark(o);
           });
-          wrap.appendChild(field(String(idx + 1), select({
+          wrap.appendChild(field(slot.label || String(idx + 1), select({
             value: cur, options: list,
             onchange: function (v) {
               update(function () {
@@ -965,6 +971,27 @@
         .map(function (m) { return { value: m.id, label: m.name }; }),
       onchange: function (v) { update(function () { entry.choices[key] = v; }); }
     }), 'One superiority die (d6), regained on a short rest.'));
+  }
+
+  /* Weapons for a pick, grouped as the PHB table groups them. `kind` narrows
+     to melee or ranged; `exclude` drops any weapon with one of those
+     properties, and `allow` names exceptions that survive it — the Kensei's
+     longbow is heavy but explicitly permitted. */
+  function weaponOptions(def, kind) {
+    var exclude = def.exclude || [], allow = def.allow || [];
+    var ok = function (w) {
+      if (kind && w.kind !== kind) return false;
+      if (allow.indexOf(w.name) !== -1) return true;
+      return !exclude.some(function (p) { return w.properties.indexOf(p) !== -1; });
+    };
+    return [['simple', 'melee', 'Simple melee'], ['simple', 'ranged', 'Simple ranged'],
+            ['martial', 'melee', 'Martial melee'], ['martial', 'ranged', 'Martial ranged']]
+      .map(function (g) {
+        return { group: g[2], options: DND.WEAPONS.filter(function (w) {
+          return w.category === g[0] && w.kind === g[1] && ok(w);
+        }).map(function (w) { return { value: w.name, label: w.name }; }) };
+      })
+      .filter(function (g) { return g.options.length; });
   }
 
   function optionsForChoice(def, cls, entry, classLevel) {
@@ -1038,9 +1065,22 @@
                  disabled: !!blocked };
       });
     }
-    if (def.type === 'weapon') {
-      return [{ group: 'Simple', options: DND.SIMPLE_WEAPONS.map(DND.UI.strOpt) },
-              { group: 'Martial', options: DND.MARTIAL_WEAPONS.map(DND.UI.strOpt) }];
+    if (def.type === 'weapon') return weaponOptions(def, def.kind);
+    /* A skill from a short list, or a language in its place (Cavalier,
+       Samurai). Languages carry a prefix so the engine can tell them apart. */
+    if (def.type === 'skillOrLanguage') {
+      var cur = normalizeSingle(entry.choices[def.id]);
+      var mine = cur.indexOf('lang:') === 0 ? cur.slice(5) : null;
+      var knownL = computed.languages.map(function (l) { return l.value; })
+        .filter(function (id) { return id !== mine; });
+      var skillOpts = DND.SKILLS.filter(function (sk) { return def.from.indexOf(sk.id) !== -1; })
+        .map(function (sk) { return { value: sk.id, label: sk.name }; });
+      return [{ group: 'Skill', options: skillOpts }].concat(
+        DND.UI.languageOptions(knownL).map(function (g) {
+          return { group: g.group + ' language, instead', options: g.options.map(function (o) {
+            return { value: 'lang:' + o.value, label: o.label, disabled: o.disabled };
+          }) };
+        }));
     }
     if (def.type === 'language') {
       var known = computed.languages.map(function (l) { return l.value; });

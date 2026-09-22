@@ -271,7 +271,11 @@ DND.SUBCLASSES = [
       choice: { id: 'disciplines', label: 'Elemental disciplines', type: 'discipline', countColumn: 'disciplinesKnown' } }
   ],
   columns: [
-    { id: 'disciplinesKnown', label: 'Disciplines known', ramp: [[3, 1], [6, 2], [11, 3], [17, 4]] }
+    { id: 'disciplinesKnown', label: 'Disciplines known', ramp: [[3, 1], [6, 2], [11, 3], [17, 4]] },
+    /* Spells and Ki Points table. From 5th level a discipline spell can be
+       cast at a higher level for 1 extra ki per level; this is the most ki,
+       base cost included, that one such casting can take. Hidden before 5th. */
+    { id: 'kiPerSpell', label: 'Max ki per discipline spell', ramp: [[5, 3], [9, 4], [13, 5], [17, 6]] }
   ]
 },
 

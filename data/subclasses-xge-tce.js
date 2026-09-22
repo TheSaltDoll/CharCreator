@@ -142,7 +142,6 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
   ]
 },
 { id: 'peace', classId: 'cleric', name: 'Peace Domain', source: 'TCE 32',
-  armor: ['Heavy armor'], tools: ['One musical instrument'],
   skills: { count: 1, from: ['insight', 'performance', 'persuasion'] },
   spells: { 1: ['Heroism', 'Sanctuary'], 3: ['Aid', 'Warding Bond'],
             5: ['Beacon of Hope', 'Sending'], 7: ['Aura of Purity', 'Otiluke\u2019s Resilient Sphere'],
@@ -240,8 +239,8 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
 },
 { id: 'cavalier', classId: 'fighter', name: 'Cavalier', source: 'XGE 30',
   features: [
-    { level: 3, name: 'Bonus Proficiency', text: 'Proficiency in one skill from Animal Handling, History, Insight, Performance, or Persuasion, or with land vehicles.',
-      choice: { id: 'cavalierSkill', label: 'Skill proficiency', type: 'skill', count: 1,
+    { level: 3, name: 'Bonus Proficiency', text: 'Proficiency in one skill from Animal Handling, History, Insight, Performance, or Persuasion. Alternatively, learn one language.',
+      choice: { id: 'cavalierSkill', label: 'Skill or language', type: 'skillOrLanguage', count: 1,
         from: ['animalHandling', 'history', 'insight', 'performance', 'persuasion'] } },
     { level: 3, name: 'Born to the Saddle', text: 'Advantage on saves to avoid falling off your mount, and you land on your feet from a 10-foot fall.' },
     { level: 3, name: 'Unwavering Mark', text: 'Mark a creature you hit; it suffers disadvantage attacking anyone else, and you may strike it with advantage and bonus damage.' },
@@ -252,9 +251,10 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
   ]
 },
 { id: 'samurai', classId: 'fighter', name: 'Samurai', source: 'XGE 31',
-  skills: { count: 1, from: ['history', 'insight', 'performance', 'persuasion'] },
   features: [
-    { level: 3, name: 'Bonus Proficiency', text: 'Proficiency in History, Insight, Performance, or Persuasion.' },
+    { level: 3, name: 'Bonus Proficiency', text: 'Proficiency in History, Insight, Performance, or Persuasion. Alternatively, learn one language.',
+      choice: { id: 'samuraiSkill', label: 'Skill or language', type: 'skillOrLanguage', count: 1,
+        from: ['history', 'insight', 'performance', 'persuasion'] } },
     { level: 3, name: 'Fighting Spirit', text: 'Bonus action. Gain advantage on weapon attacks this turn and temporary hit points. Three uses per long rest.' },
     { level: 7, name: 'Elegant Courtier', text: 'Add your Wisdom modifier to Persuasion, and gain proficiency in Wisdom saves.', addSave: 'wis' },
     { level: 10, name: 'Tireless Spirit', text: 'Regain a Fighting Spirit use when you roll initiative with none left.' },
@@ -277,7 +277,8 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
 { id: 'runeKnight', classId: 'fighter', name: 'Rune Knight', source: 'TCE 44',
   tools: ["Smith's tools"],
   features: [
-    { level: 3, name: 'Bonus Proficiencies', text: 'Proficiency with smith\u2019s tools, and you understand Giant.' },
+    { level: 3, name: 'Bonus Proficiencies', text: 'Proficiency with smith\u2019s tools, and you learn to speak, read, and write Giant.',
+      grantLanguages: ['giant'] },
     { level: 3, name: 'Rune Carver', text: 'Inscribe runes on your gear, each granting a passive benefit and an invocable power.',
       choice: { id: 'runes', label: 'Runes known', type: 'rune', countColumn: 'runesKnown' } },
     { level: 3, name: "Giant's Might", text: 'Bonus action. Grow to Large, gain advantage on Strength checks and saves, and add 1d6 to one damage roll per turn.' },
@@ -291,10 +292,10 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
 
 /* ============================== MONK =============================== */
 { id: 'drunkenMaster', classId: 'monk', name: 'Way of the Drunken Master', source: 'XGE 33',
-  skills: { count: 1, from: ['performance'] },
   tools: ["Brewer's supplies"],
   features: [
-    { level: 3, name: 'Bonus Proficiencies', text: 'Proficiency in Performance and with brewer\u2019s supplies.' },
+    { level: 3, name: 'Bonus Proficiencies', text: 'Proficiency in Performance and with brewer\u2019s supplies, if you don\u2019t already have them.',
+      grantSkills: ['performance'] },
     { level: 3, name: 'Drunken Technique', text: 'Flurry of Blows grants the benefit of Disengage and 10 feet of extra movement.' },
     { level: 6, name: 'Tipsy Sway', text: 'Leap to your feet from prone for 5 feet of movement, and redirect a missed attack onto another creature for 1 ki.' },
     { level: 11, name: "Drunkard's Luck", text: 'Spend 2 ki to cancel disadvantage on an attack, check, or save.' },
@@ -303,11 +304,19 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
 },
 { id: 'kensei', classId: 'monk', name: 'Way of the Kensei', source: 'XGE 34',
   features: [
-    { level: 3, name: 'Path of the Kensei', text: 'Choose two kensei weapons, gaining proficiency and treating them as monk weapons, plus an agile parry or ranged bonus.',
-      choice: { id: 'kenseiWeapons', label: 'Kensei weapons', type: 'weapon', count: 2 } },
+    { level: 3, name: 'Path of the Kensei', text: 'Choose one melee and one ranged kensei weapon, and another of either kind at 6th, 11th, and 17th level. Each is a simple or martial weapon without the heavy or special property, or a longbow. You gain proficiency with them and they count as monk weapons. You also gain Agile Parry, Kensei\u2019s Shot, and proficiency with calligrapher\u2019s or painter\u2019s supplies.',
+      choice: { id: 'kenseiWeapons', label: 'Kensei weapons', type: 'weapon', countColumn: 'kenseiWeapons',
+        exclude: ['heavy', 'special'], allow: ['Longbow'],
+        slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'ranged', label: 'Ranged' },
+                { label: '6th level' }, { label: '11th level' }, { label: '17th level' }] },
+      choice2: { id: 'kenseiBrush', label: 'Way of the Brush', type: 'tool', count: 1,
+        from: ["Calligrapher's supplies", "Painter's supplies"] } },
     { level: 6, name: 'One with the Blade', text: 'Kensei weapons count as magical, and you may spend 1 ki for extra damage equal to your Martial Arts die.' },
     { level: 11, name: 'Sharpen the Blade', text: 'Spend up to 3 ki to give a kensei weapon a matching bonus to attack and damage for 1 minute.' },
     { level: 17, name: 'Unerring Accuracy', text: 'Reroll a missed monk weapon attack once per turn.' }
+  ],
+  columns: [
+    { id: 'kenseiWeapons', label: 'Kensei weapons', ramp: [[3, 2], [6, 3], [11, 4], [17, 5]] }
   ]
 },
 { id: 'sunSoul', classId: 'monk', name: 'Way of the Sun Soul', source: 'XGE 35',
@@ -319,10 +328,12 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
   ]
 },
 { id: 'mercy', classId: 'monk', name: 'Way of Mercy', source: 'TCE 49',
-  skills: { count: 1, from: ['insight', 'medicine'] },
   tools: ["Herbalism kit"],
   features: [
-    { level: 3, name: 'Implements of Mercy', text: 'Proficiency in Insight and Medicine, and with the herbalism kit.' },
+    { level: 3, name: 'Implements of Mercy', text: 'Proficiency in Insight and Medicine, and with the herbalism kit. You also gain a special mask, worn when using the features of this subclass.',
+      grantSkills: ['insight', 'medicine'],
+      choice: { id: 'mercyMask', label: 'Merciful mask', type: 'list', count: 1,
+        from: ['Raven', 'Blank and white', 'Crying visage', 'Laughing visage', 'Skull', 'Butterfly'] } },
     { level: 3, name: 'Hand of Healing', text: 'Spend 1 ki to restore a number of hit points equal to your Martial Arts die + your Wisdom modifier.' },
     { level: 3, name: 'Hand of Harm', text: 'Spend 1 ki on a hit for extra necrotic damage equal to your Martial Arts die + your Wisdom modifier. Once per turn.' },
     { level: 6, name: 'Physician\u2019s Touch', text: 'Hand of Healing also ends a condition; Hand of Harm also poisons the target.' },
@@ -428,9 +439,9 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
             13: ['Dimension Door'], 17: ['Mislead'] },
   features: [
     { level: 3, name: 'Dreadful Strikes', text: 'Once per turn, deal an extra 1d4 psychic damage, rising to 1d6 at 11th level.' },
-    { level: 3, name: 'Otherworldly Glamour', text: 'Add your Wisdom modifier to Charisma checks, and gain proficiency in one Charisma skill.',
-      choice: { id: 'feySkill', label: 'Charisma skill', type: 'skill', count: 1,
-        from: ['deception', 'intimidation', 'performance', 'persuasion'] } },
+    { level: 3, name: 'Otherworldly Glamour', text: 'Add your Wisdom modifier to Charisma checks, and gain proficiency in Deception, Performance, or Persuasion.',
+      choice: { id: 'feySkill', label: 'Skill proficiency', type: 'skill', count: 1,
+        from: ['deception', 'performance', 'persuasion'] } },
     { level: 7, name: 'Beguiling Twist', text: 'Advantage on saves against being charmed or frightened, and a reaction to redirect such an effect.' },
     { level: 11, name: 'Fey Reinforcements', text: 'You always have summon fey prepared, and can cast it once per long rest without a slot.' },
     { level: 15, name: 'Misty Wanderer', text: 'Cast misty step without a slot, taking a willing creature with you. Uses equal your Wisdom modifier per long rest.' }
@@ -650,8 +661,10 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
 { id: 'bladesinging', classId: 'wizard', name: 'Bladesinging', source: 'TCE 76',
   armor: ['Light armor'],
   features: [
-    { level: 2, name: 'Training in War and Song', text: 'Proficiency with light armor, one one-handed melee weapon, and Performance.',
-      choice: { id: 'bladesingWeapon', label: 'One-handed melee weapon', type: 'weapon', count: 1 } },
+    { level: 2, name: 'Training in War and Song', text: 'Proficiency with light armor, one one-handed melee weapon, and Performance if you don\u2019t already have it.',
+      grantSkills: ['performance'],
+      choice: { id: 'bladesingWeapon', label: 'One-handed melee weapon', type: 'weapon', count: 1,
+        kind: 'melee', exclude: ['two-handed'] } },
     { level: 2, name: 'Bladesong', text: 'Bonus action. For 1 minute gain +Intelligence modifier to AC, 10 feet of speed, advantage on Acrobatics, and concentration bonuses. Uses equal your proficiency bonus per rest.' },
     { level: 6, name: 'Extra Attack', text: 'Attack twice when you take the Attack action, and may replace one attack with a cantrip.' },
     { level: 10, name: 'Song of Defense', text: 'Expend a spell slot while Bladesong is active to reduce damage by five times the slot level.' },

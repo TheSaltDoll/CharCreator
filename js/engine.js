@@ -416,6 +416,22 @@ DND.Engine = (function () {
         });
       }
 
+      /* Optional class features grant through their choices. Until this was
+         added, Primal Knowledge and Deft Explorer picks were stored and shown
+         but never conferred proficiency, expertise or languages. */
+      featureChoices(ce).filter(function (fc) { return fc.fromOptional; }).forEach(function (fc) {
+        var v = (ce.entry.choices || {})[fc.def.id];
+        if (!v) return;
+        (Array.isArray(v) ? v : [v]).slice(0, fc.count).forEach(function (val) {
+          if (!val) return;
+          var src = cls.name + ' \u2014 ' + fc.featureName;
+          if (fc.def.type === 'skill') addSkill(val, src, true);
+          else if (fc.def.type === 'proficientSkill') expertise.push({ skill: val, source: src });
+          else if (fc.def.type === 'language') addLang(val, src, true);
+          else if (fc.def.type === 'tool') addTool(val, src, true);
+        });
+      });
+
       var inv = (ce.entry.choices || {}).invocations;
       if (inv) {
         (Array.isArray(inv) ? inv : [inv]).forEach(function (id) {
@@ -660,7 +676,8 @@ DND.Engine = (function () {
             features: subFeatures(ce),
             columns: (sub.columns || []).map(function (col) {
               return { id: col.id, label: col.label,
-                       value: DND.subColumnValue(sub, col.id, ce.level) };
+                       value: col.perProficiency ? col.perProficiency * pb
+                                                 : DND.subColumnValue(sub, col.id, ce.level) };
             }).filter(function (c) { return c.value !== null; }),
             spells: DND.subclassSpells(sub, ce.level, (ce.entry.choices || {})[sub.variantSpells && sub.variantSpells.key]),
             spellsNote: sub.spellsNote || 'Always prepared. They do not count against the number of spells you prepare.',
@@ -825,6 +842,36 @@ DND.Engine = (function () {
     return { top: top, caps: caps, total: total };
   }
 
+  /* Eldritch Knight and Arcane Trickster: how many spells known may sit
+     outside their two schools, bucketed as "this level or higher".
+
+     The picks at schoolsFreeAt (3rd, 8th, 14th, 20th) may be from any school,
+     so the total is simply how many of those levels have been reached — three
+     at 19th. But only the picks in schoolsSwapFree (8th, 14th, 20th) may later
+     be *replaced* by an off-school spell; the 3rd-level pick can only become
+     an abjuration or evocation (PHB 75, 98). So the 3rd-level pick is stuck at
+     1st level, and an off-school spell of level j or higher must have arrived
+     either as a free pick made once j was castable, or by one of the one-per-
+     level replacements since then aimed at an earlier swap-free pick. */
+  function offSchoolCaps(sc, classLevel) {
+    if (!sc || !sc.schools || !sc.schoolsFreeAt) return null;
+    var gained = sc.schoolsFreeAt.filter(function (lv) { return lv <= classLevel; });
+    if (!gained.length) return null;
+    var swapFree = (sc.schoolsSwapFree || []).filter(function (lv) { return lv <= classLevel; });
+    var top = ownMaxSpellLevel(sc, classLevel);
+    var caps = [0, gained.length];
+    for (var j = 2; j <= top; j++) {
+      var L0 = 1;
+      while (L0 <= classLevel && ownMaxSpellLevel(sc, L0) < j) L0++;
+      var fresh = swapFree.filter(function (lv) { return lv >= L0; }).length;
+      /* a replacement needs an earlier swap-free pick to aim at */
+      var firstSwap = swapFree.length ? Math.max(L0, swapFree[0] + 1) : Infinity;
+      var swaps = Math.max(0, classLevel - firstSwap + 1);
+      caps[j] = Math.min(swapFree.length, fresh + swaps);
+    }
+    return { schools: sc.schools, total: gained.length, top: top, caps: caps };
+  }
+
   /* Magical Secrets are granted in fixed batches at fixed levels and have no
      replacement clause, so each batch is pinned to what was castable then. */
   function grantCaps(sc, grants) {
@@ -968,6 +1015,7 @@ DND.Engine = (function () {
          acquired. Null for preparing classes and for the wizard's spellbook,
          which can also be filled from scrolls and other spellbooks. */
       p.knownCaps = knownSpellCaps(ce.sc, p.level);
+      p.schoolCaps = offSchoolCaps(ce.sc, p.level);
       p.secretsCaps = grantCaps(ce.sc, secretGrants);
 
       /* Mystic Arcanum: one spell of each level, from warlock 11 upward. */
@@ -1023,7 +1071,18 @@ DND.Engine = (function () {
       var opt = DND.OPTIONAL_CLASS_FEATURES.filter(function (o) {
         return o.classId === ce.cls.id && o.name === name && o.level <= ce.level;
       })[0];
-      if (opt && opt.choice) out.push({ def: opt.choice, count: opt.choice.count || 1, featureName: opt.name });
+      if (!opt) return;
+      ['choice', 'choice2'].forEach(function (k) {
+        var c = opt[k];
+        if (!c) return;
+        /* Primal Knowledge gives one skill at 3rd and another at 10th. */
+        var count = c.count || 1;
+        if (c.countRamp) {
+          count = 0;
+          c.countRamp.forEach(function (r) { if (ce.level >= r[0]) count = r[1]; });
+        }
+        out.push({ def: c, count: count, featureName: opt.name, fromOptional: true });
+      });
     });
     /* A choice that gates another must be offered first, whatever level it
        arrives at: the Pact Boon decides which invocations are even legal. */
@@ -1173,6 +1232,24 @@ DND.Engine = (function () {
             }
           }
         });
+
+        if (p.schoolCaps) {
+          var sch = p.schoolCaps;
+          var off = p.spellsChosen.filter(function (id) {
+            var s3 = DND.SPELLS[id];
+            return s3 && s3.level >= 1 && sch.schools.indexOf(s3.school) === -1;
+          });
+          for (var jj = 1; jj <= 9; jj++) {
+            var capj = jj <= sch.top ? sch.caps[jj] : 0;
+            var nj = off.filter(function (id) { return DND.SPELLS[id].level >= jj; }).length;
+            if (nj > capj) {
+              out.push(p.className + ': ' + nj + ' of your spells known are outside ' +
+                sch.schools.join(' and ') + (jj > 1 ? ' and ' + DND.ordinal(jj) + ' level or higher' : '') +
+                ', but you could only have learned ' + capj + ' by this level. Drop ' + (nj - capj) + '.');
+              break;
+            }
+          }
+        }
 
         (p.arcanum || []).forEach(function (a) {
           if (!a.chosen.length) {

@@ -911,7 +911,11 @@
         return;
       }
 
-      var chosen = Array.isArray(entry.choices[def.id]) ? entry.choices[def.id].slice(0, count) : [];
+      /* A pick made while the count was 1 is stored as a plain string. When
+         the count grows (Primal Knowledge at 10th, disciplines at 6th) it
+         must carry over into the first slot rather than silently vanish. */
+      var asList = function (v) { return Array.isArray(v) ? v.slice() : (v ? [v] : []); };
+      var chosen = asList(entry.choices[def.id]).slice(0, count);
       var wrap = el('div', { class: 'pick-list' });
       wrap.appendChild(el('span', { class: 'field-label', text: def.label + ' \u2014 ' + count + ' known' }));
 
@@ -937,7 +941,7 @@
             value: cur, options: list,
             onchange: function (v) {
               update(function () {
-                var arr = Array.isArray(entry.choices[def.id]) ? entry.choices[def.id].slice() : [];
+                var arr = asList(entry.choices[def.id]);
                 arr[idx] = v;
                 entry.choices[def.id] = arr;
               });
@@ -1415,6 +1419,7 @@
         pool: function () { return pool; }, minLevel: 1, maxLevel: p.maxKnownLevel,
         key: cls.id + ':known', siblings: pickers,
         caps: p.knownCaps,
+        schoolCaps: p.schoolCaps,
         note: p.limitLabel === 'prepared'
           ? 'You may swap these after a long rest.'
           : 'You may replace one when you gain a level in this class. Each spell had to be learned at a level that could already cast it, so the higher levels are limited to what you could have picked up along the way.'
@@ -1477,9 +1482,10 @@
   function spellPicker(opts) {
     var node = el('div', { class: 'spell-picker' });
     var countEl = el('span', { class: 'sp-count' });
+    var schoolEl = opts.schoolCaps ? el('span', { class: 'sp-count sp-school' }) : null;
     node.appendChild(el('div', { class: 'sp-head' }, [
-      el('span', { class: 'sp-title', text: opts.title }), countEl
-    ]));
+      el('span', { class: 'sp-title', text: opts.title }), schoolEl, countEl
+    ].filter(Boolean)));
     if (opts.note) node.appendChild(el('p', { class: 'field-hint', text: opts.note }));
 
     var chipBox = el('div', { class: 'sp-chosen' });
@@ -1515,25 +1521,57 @@
        answers every ceiling at once. */
     function tally() {
       var at = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+      at.off = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
       opts.get().forEach(function (id) {
         var sp = DND.SPELLS[id];
         if (!sp) return;
         for (var j = 1; j <= sp.level; j++) at[j]++;
+        if (offSchool(sp)) for (var k = 1; k <= sp.level; k++) at.off[k]++;
       });
       return at;
     }
 
+    /* Eldritch Knight and Arcane Trickster: a leveled spell outside the two
+       schools uses up one of the free picks. Cantrips are unrestricted. */
+    function offSchool(sp) {
+      return !!(opts.schoolCaps && sp && sp.level >= 1 &&
+        opts.schoolCaps.schools.indexOf(sp.school) === -1);
+    }
+    function schoolCapAt(lv) {
+      var sc = opts.schoolCaps;
+      return lv <= sc.top ? sc.caps[lv] : 0;
+    }
+
     /* Adding a spell of this level raises every bucket at or below it, so
        each one has to have room. Returns the level that objects, or 0. */
-    function capBlocks(at, lv) {
-      if (!opts.caps || lv < 1) return 0;
-      for (var j = 1; j <= lv; j++) {
-        if (at[j] + 1 > capAt(j)) return j;
+    function capBlocks(at, lv, sp) {
+      if (lv < 1) return 0;
+      if (opts.caps) {
+        for (var j = 1; j <= lv; j++) {
+          if (at[j] + 1 > capAt(j)) return j;
+        }
+      }
+      /* returned as an object so the tooltip can say which rule applies */
+      if (offSchool(sp)) {
+        for (var k = 1; k <= lv; k++) {
+          if (at.off[k] + 1 > schoolCapAt(k)) return { j: k, school: true };
+        }
       }
       return 0;
     }
 
     function capReason(lv, blockedAt) {
+      if (blockedAt && blockedAt.school) {
+        var sc = opts.schoolCaps, m = schoolCapAt(blockedAt.j), schools = sc.schools.join(' or ');
+        if (blockedAt.j === 1) {
+          return 'Only ' + m + ' of your spells may be from outside ' + schools +
+            ' at this class level: one free pick each at 3rd, 8th, 14th and 20th level.';
+        }
+        return 'You can hold at most ' + m + ' spell' + (m === 1 ? '' : 's') + ' of ' +
+          DND.ordinal(blockedAt.j) + ' level or higher from outside ' + schools +
+          '. Your 3rd-level free pick can only ever be swapped for ' + schools +
+          ', so higher-level off-school spells must come from the 8th, 14th and 20th-level picks.';
+      }
       var n = capAt(blockedAt);
       if (!n) {
         return 'You could not yet have learned a spell of this level at this class level.';
@@ -1563,6 +1601,13 @@
     function refresh() {
       var chosen = opts.get();
       countEl.textContent = chosen.length + ' / ' + opts.limit;
+      if (schoolEl) {
+        var offNow = tally().off[1], offCap = opts.schoolCaps.total;
+        schoolEl.textContent = 'Other schools ' + offNow + ' / ' + offCap;
+        schoolEl.className = 'sp-count sp-school' + (offNow > offCap ? ' over' : '');
+        schoolEl.title = 'Spells outside ' + opts.schoolCaps.schools.join(' and ') +
+          ': one free pick each at 3rd, 8th, 14th and 20th level.';
+      }
       countEl.className = 'sp-count' + (chosen.length === opts.limit ? ' done'
         : (chosen.length > opts.limit ? ' over' : ''));
 
@@ -1595,7 +1640,7 @@
         /* A full list already trips every ceiling, so check it first and
            report the simpler reason. */
         var isFull = !on && full;
-        var blockedAt = (on || isFull) ? 0 : capBlocks(at, it.level);
+        var blockedAt = (on || isFull) ? 0 : capBlocks(at, it.level, DND.SPELLS[id]);
         it.cb.checked = on;
         it.cb.disabled = isFull || !!blockedAt;
         it.label.className = 'sp-item' + (on ? ' on' : '') +
@@ -1661,7 +1706,7 @@
         byLevel[lv].sort(function (a, b) { return a.name.localeCompare(b.name); }).forEach(function (sp) {
           var on = chosen.indexOf(sp.id) !== -1;
           var isFull = !on && chosen.length >= opts.limit;
-          var blockedAt = (on || isFull) ? 0 : capBlocks(at, sp.level);
+          var blockedAt = (on || isFull) ? 0 : capBlocks(at, sp.level, sp);
           var stop = isFull || !!blockedAt;
           var marks = [];
           if (sp.concentration) marks.push('C');

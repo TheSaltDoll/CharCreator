@@ -853,6 +853,9 @@ select { cursor: pointer; }
 }
 .sp-lvl-cap.done { color: var(--slate); }
 .sp-lvl-cap.over { color: var(--oxblood); font-weight: 600; }
+/* Eldritch Knight / Arcane Trickster free picks outside their two schools */
+.sp-school { margin-left: auto; margin-right: .75rem; color: var(--brass); }
+.sp-school.over { color: var(--oxblood); font-weight: 600; }
 
 .sp-grid {
   display: grid;

@@ -236,7 +236,10 @@ DND.SUBCLASSES = [
 },
 { id: 'eldritchKnight', classId: 'fighter', name: 'Eldritch Knight', source: 'PHB 74',
   spellcasting: { type: 'third', ability: 'int', list: 'wizard', focus: 'None',
-    schools: ['abjuration', 'evocation'], schoolsFreeAt: [3, 8, 14, 20],
+    /* Picks at 3rd, 8th, 14th and 20th may be from any school, but only the
+       8th, 14th and 20th picks may be *replaced* by an off-school spell. The
+       3rd-level one can only be swapped for abjuration or evocation (PHB 75). */
+    schools: ['abjuration', 'evocation'], schoolsFreeAt: [3, 8, 14, 20], schoolsSwapFree: [8, 14, 20],
     cantrips: EK_CANTRIPS, known: EK_KNOWN },
   features: [
     { level: 3, name: 'Spellcasting', text: 'Learn wizard spells, Intelligence-based. Most must come from abjuration and evocation; your picks at 3rd, 8th, 14th, and 20th level may be from any school.' },
@@ -365,7 +368,8 @@ DND.SUBCLASSES = [
 },
 { id: 'arcaneTrickster', classId: 'rogue', name: 'Arcane Trickster', source: 'PHB 97',
   spellcasting: { type: 'third', ability: 'int', list: 'wizard', focus: 'None',
-    schools: ['enchantment', 'illusion'], schoolsFreeAt: [3, 8, 14, 20],
+    /* Same shape as the Eldritch Knight (PHB 98). */
+    schools: ['enchantment', 'illusion'], schoolsFreeAt: [3, 8, 14, 20], schoolsSwapFree: [8, 14, 20],
     cantrips: AT_CANTRIPS, known: EK_KNOWN, grantsSpell: 'Mage Hand' },
   features: [
     { level: 3, name: 'Spellcasting', text: 'Learn wizard spells, Intelligence-based. Most must come from enchantment and illusion; your picks at 3rd, 8th, 14th, and 20th level may be from any school.' },
@@ -555,6 +559,7 @@ DND.subColumnValue = function (sub, columnId, level) {
   for (var i = 0; i < sub.columns.length; i++) {
     var col = sub.columns[i];
     if (col.id !== columnId) continue;
+    if (!col.ramp) return null;   /* computed columns, e.g. from proficiency bonus */
     var v = null;
     for (var j = 0; j < col.ramp.length; j++) {
       if (level >= col.ramp[j][0]) v = col.ramp[j][1];

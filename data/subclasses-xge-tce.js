@@ -264,7 +264,7 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
 },
 { id: 'psiWarrior', classId: 'fighter', name: 'Psi Warrior', source: 'TCE 42',
   features: [
-    { level: 3, name: 'Psionic Power', text: 'Psionic Energy dice, twice your proficiency bonus per long rest, starting at d6 and growing with level.' },
+    { level: 3, name: 'Psionic Power', text: 'Psionic Energy dice equal to twice your proficiency bonus, regained on a long rest; regain one as a bonus action once per short rest. The die is a d6, rising to d8 at 5th level, d10 at 11th, and d12 at 17th.' },
     { level: 3, name: 'Protective Field', text: 'Reaction. Spend a die to reduce damage to a creature within 30 feet by the die + your Intelligence modifier.' },
     { level: 3, name: 'Psionic Strike', text: 'Once per turn, spend a die to add it plus your Intelligence modifier as force damage.' },
     { level: 3, name: 'Telekinetic Movement', text: 'Move an object or creature 30 feet with your mind.' },
@@ -272,7 +272,11 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
     { level: 10, name: 'Guarded Mind', text: 'Resistance to psychic damage, and spend a die to end a charm or fright.' },
     { level: 15, name: 'Bulwark of Force', text: 'Give yourself and up to your Intelligence modifier in creatures half cover for 1 minute.' }
   ],
-  columns: [{ id: 'psiDie', label: 'Psionic Energy die', ramp: [[3, 'd6'], [5, 'd8'], [11, 'd10'], [17, 'd12']] }]
+  /* "a number of these dice equal to twice your proficiency bonus" (TCE 42, 63).
+     Proficiency bonus follows total character level, not class level, so the
+     count is computed rather than read from a ramp. */
+  columns: [{ id: 'psiDice', label: 'Psionic Energy dice', perProficiency: 2 },
+            { id: 'psiDie', label: 'Psionic Energy die', ramp: [[3, 'd6'], [5, 'd8'], [11, 'd10'], [17, 'd12']] }]
 },
 { id: 'runeKnight', classId: 'fighter', name: 'Rune Knight', source: 'TCE 44',
   tools: ["Smith's tools"],
@@ -511,13 +515,17 @@ DND.SUBCLASSES = (DND.SUBCLASSES || []).concat([
 },
 { id: 'soulknife', classId: 'rogue', name: 'Soulknife', source: 'TCE 63',
   features: [
-    { level: 3, name: 'Psionic Power', text: 'Psionic Energy dice, twice your proficiency bonus per long rest, starting at d6 and growing with level. They fuel Psi-Bolstered Knack and Psychic Whispers.' },
+    { level: 3, name: 'Psionic Power', text: 'Psionic Energy dice equal to twice your proficiency bonus, regained on a long rest; regain one as a bonus action once per short rest. The die is a d6, rising to d8 at 5th level, d10 at 11th, and d12 at 17th. They fuel Psi-Bolstered Knack and Psychic Whispers.' },
     { level: 3, name: 'Psychic Blades', text: 'Manifest a thrown or melee psychic blade dealing 1d6 psychic damage, with a bonus action second blade at 1d4.' },
     { level: 9, name: 'Soul Blades', text: 'Homing Strikes turns a miss into a hit, and Psychic Teleportation throws a blade to teleport you.' },
     { level: 13, name: 'Psychic Veil', text: 'Turn invisible for 1 hour. Once per long rest, or by spending a Psionic Energy die.' },
     { level: 17, name: 'Rend Mind', text: 'Sneak Attack with a Psychic Blade can stun a creature for 1 minute.' }
   ],
-  columns: [{ id: 'psiDie', label: 'Psionic Energy die', ramp: [[3, 'd6'], [5, 'd8'], [11, 'd10'], [17, 'd12']] }]
+  /* "a number of these dice equal to twice your proficiency bonus" (TCE 42, 63).
+     Proficiency bonus follows total character level, not class level, so the
+     count is computed rather than read from a ramp. */
+  columns: [{ id: 'psiDice', label: 'Psionic Energy dice', perProficiency: 2 },
+            { id: 'psiDie', label: 'Psionic Energy die', ramp: [[3, 'd6'], [5, 'd8'], [11, 'd10'], [17, 'd12']] }]
 },
 
 /* ============================ SORCERER ============================= */

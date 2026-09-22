@@ -193,9 +193,11 @@ DND.FAVORED_TERRAINS = [
    --------------------------------------------------------------- */
 DND.OPTIONAL_CLASS_FEATURES = [
   { classId: 'barbarian', level: 3, name: 'Primal Knowledge', source: 'TCE 24',
-    note: 'Gain proficiency in one more barbarian skill, and make certain Strength checks while raging.',
-    choice: { id: 'primalKnowledge', label: 'Skill proficiency', type: 'skill',
-      from: ['animalHandling', 'athletics', 'intimidation', 'nature', 'perception', 'survival'], count: 1 } },
+    note: 'Gain proficiency in one skill from the barbarian\u2019s 1st-level list at 3rd level, and another at 10th.',
+    /* "When you reach 3rd level and again at 10th level" (TCE 24) */
+    choice: { id: 'primalKnowledge', label: 'Primal Knowledge skills', type: 'skill',
+      from: ['animalHandling', 'athletics', 'intimidation', 'nature', 'perception', 'survival'],
+      countRamp: [[3, 1], [10, 2]] } },
   { classId: 'barbarian', level: 7, name: 'Instinctive Pounce', source: 'TCE 24',
     note: 'When you enter your rage as a bonus action, move up to half your speed.' },
 
@@ -240,7 +242,9 @@ DND.OPTIONAL_CLASS_FEATURES = [
   { classId: 'ranger', level: 1, name: 'Deft Explorer', source: 'TCE 57',
     replaces: 'Natural Explorer',
     note: 'Canny at 1st: expertise in one proficient skill and two extra languages. Roving at 6th, Tireless at 10th.',
-    choice: { id: 'deftExplorerSkill', label: 'Expertise in', type: 'proficientSkill', count: 1 } },
+    choice: { id: 'deftExplorerSkill', label: 'Expertise in', type: 'proficientSkill', count: 1 },
+    /* Canny also grants "two additional languages of your choice" (TCE 57). */
+    choice2: { id: 'deftExplorerLangs', label: 'Canny languages', type: 'language', count: 2 } },
   { classId: 'ranger', level: 1, name: 'Favored Foe', source: 'TCE 57',
     replaces: 'Favored Enemy',
     note: 'Mark a target on a hit for extra 1d4 damage once per turn, concentration. Uses equal your proficiency bonus.' },

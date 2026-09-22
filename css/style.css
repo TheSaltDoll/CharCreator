@@ -964,3 +964,35 @@ select { cursor: pointer; }
   border-left: 2px solid var(--oxblood);
   color: var(--oxblood);
 }
+
+/* ---------- 8. Equipment ---------- */
+.coin-row { display: flex; align-items: flex-end; gap: .6rem; flex-wrap: wrap; margin: .4rem 0 .6rem; }
+.coin-field { display: flex; align-items: center; gap: .25rem; font-size: .8rem; color: var(--slate); }
+.coin-input { width: 5rem; }
+.purse-totals { display: flex; gap: 1.4rem; flex-wrap: wrap; font-size: .85rem; padding-top: .4rem;
+  border-top: 1px solid var(--rule); }
+.purse-totals .over { color: var(--oxblood); }
+.warn-line { color: var(--oxblood); }
+
+.grant-row { display: flex; align-items: center; gap: .5rem; padding: .15rem 0; font-size: .88rem; }
+.grant-row input[type=checkbox] { flex: none; }
+.grant-name { flex: 1; }
+.grant-row select { flex: 1; max-width: 18rem; }
+.grant-src { color: var(--slate); font-size: .75rem; text-align: right; }
+
+.inv-row { display: flex; align-items: center; gap: .6rem; padding: .18rem 0;
+  border-bottom: 1px solid var(--rule); font-size: .88rem; }
+.inv-row:last-child { border-bottom: none; }
+.inv-name { flex: 1; }
+.inv-src { color: var(--slate); font-size: .75rem; }
+.inv-cost { font-variant-numeric: tabular-nums; color: var(--slate); min-width: 6rem; text-align: right; }
+
+.shop-head { margin-top: .9rem; padding: .3rem 0 .2rem; font-size: .68rem; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--slate); border-bottom: 1px solid var(--rule); }
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr)); gap: .05rem .9rem; }
+.shop-row { display: flex; align-items: center; gap: .4rem; padding: .12rem 0; font-size: .85rem; }
+.shop-row.has { background: var(--wash, rgba(0,0,0,.03)); }
+.shop-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shop-cost { font-variant-numeric: tabular-nums; color: var(--slate); min-width: 5.5rem; text-align: right; }
+.qty-btn { width: 1.5rem; height: 1.5rem; line-height: 1; padding: 0; flex: none; }
+.qty { min-width: 1.2rem; text-align: center; font-variant-numeric: tabular-nums; }

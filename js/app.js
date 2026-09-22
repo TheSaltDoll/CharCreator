@@ -6,7 +6,7 @@
   var mount = {};
 
   function init() {
-    ['identity', 'options', 'abilities', 'race', 'background', 'class', 'advancement', 'sheet']
+    ['identity', 'options', 'abilities', 'race', 'background', 'class', 'advancement', 'gear', 'sheet']
       .forEach(function (k) { mount[k] = document.getElementById('mount-' + k); });
 
     document.getElementById('btn-save').addEventListener('click', saveJson);
@@ -34,6 +34,7 @@
     renderBackground();
     renderClass();
     renderAdvancement();
+    renderGear();
     renderSheet();
   }
 
@@ -2055,6 +2056,193 @@
   /* ============================================================
      Live sheet
      ============================================================ */
+  /* ============================================================
+     8. Equipment
+     ============================================================ */
+  var gearFilter = '';
+
+  function gearState() {
+    if (!state.gear) state.gear = DND.Gear.blank();
+    return state.gear;
+  }
+
+  function coinRow(g) {
+    /* the purse, split into the three coins, defaulting to the background */
+    var box = el('div', { class: 'coin-row' });
+    var cur = g.purseCp;
+    var parts = { gp: Math.floor(cur / 100), sp: Math.floor((cur % 100) / 10), cp: cur % 10 };
+    ['gp', 'sp', 'cp'].forEach(function (u) {
+      var inp = el('input', { type: 'number', min: '0', value: String(parts[u]), class: 'coin-input' });
+      inp.addEventListener('change', function () {
+        var v = { gp: parts.gp, sp: parts.sp, cp: parts.cp };
+        v[u] = Math.max(0, parseInt(inp.value, 10) || 0);
+        update(function () { gearState().purse = v.gp * 100 + v.sp * 10 + v.cp; });
+      });
+      box.appendChild(el('label', { class: 'coin-field' }, [inp, el('span', { text: u })]));
+    });
+    var reset = el('button', { type: 'button', class: 'book-chip', text: 'Use background default' });
+    reset.addEventListener('click', function () { update(function () { gearState().purse = null; }); });
+    box.appendChild(reset);
+    return box;
+  }
+
+  function priceTag(cp) { return cp === null || cp === undefined ? '\u2014' : DND.money(cp); }
+
+  function renderGear() {
+    var box = mount.gear;
+    clear(box);
+    var g = computed.gear;
+    var gs = gearState();
+
+    if (!g.firstClass) {
+      box.appendChild(el('p', { class: 'field-hint', text: 'Choose a class to see its starting equipment.' }));
+    }
+
+    /* ---- starting equipment ---- */
+    if (g.start) {
+      var startCard = el('div', { class: 'card' });
+      startCard.appendChild(el('h3', { text: 'Starting equipment' }));
+      startCard.appendChild(el('p', { class: 'field-hint',
+        text: 'From your first class and your background. Untick anything you would rather not carry \u2014 dropped gear is not refunded, since you never paid for it.' }));
+
+      g.groups.forEach(function (grp) {
+        var sel = DND.UI.select({
+          value: grp.chosen === null ? '' : String(grp.chosen),
+          options: grp.options.map(function (o, i) { return { value: String(i), label: o.label }; }),
+          onchange: function (v) {
+            update(function () {
+              if (v === '') delete gs.choices[grp.key];
+              else gs.choices[grp.key] = parseInt(v, 10);
+            });
+          }
+        });
+        startCard.appendChild(DND.UI.field(grp.label, sel));
+        grp.items.forEach(function (it) { startCard.appendChild(grantedLine(it, gs)); });
+      });
+
+      g.fixedItems.forEach(function (it) { startCard.appendChild(grantedLine(it, gs)); });
+
+      if (g.backgroundLine) {
+        startCard.appendChild(grantedLine({ key: 'bg', text: g.backgroundLine.equipment,
+          source: g.backgroundLine.name }, gs));
+      }
+      box.appendChild(startCard);
+    }
+
+    /* ---- purse ---- */
+    var purseCard = el('div', { class: 'card' });
+    purseCard.appendChild(el('h3', { text: 'Coin' }));
+    purseCard.appendChild(el('p', { class: 'field-hint',
+      text: 'Starts at your background\u2019s gold' + (g.defaultPurseCp ? ' (' + DND.money(g.defaultPurseCp) + ')' : '') + ', and can be set to anything.' }));
+    purseCard.appendChild(coinRow(g));
+    var totals = el('div', { class: 'purse-totals' }, [
+      el('span', {}, [el('strong', { text: 'Spent ' }), el('span', { text: DND.money(g.spentCp) })]),
+      el('span', { class: g.remainingCp < 0 ? 'over' : '' }, [
+        el('strong', { text: 'Remaining ' }), el('span', { text: DND.money(g.remainingCp) })]),
+      el('span', {}, [el('strong', { text: 'Carried ' }), el('span', { text: g.weight + ' lb' })])
+    ]);
+    purseCard.appendChild(totals);
+    if (g.remainingCp < 0) {
+      purseCard.appendChild(el('p', { class: 'warn-line',
+        text: 'You have spent ' + DND.money(-g.remainingCp) + ' more than you have.' }));
+    }
+    box.appendChild(purseCard);
+
+    /* ---- inventory ---- */
+    var invCard = el('div', { class: 'card' });
+    invCard.appendChild(el('h3', { text: 'Inventory' }));
+    if (!g.inventory.length) {
+      invCard.appendChild(el('p', { class: 'field-hint', text: 'Nothing yet.' }));
+    }
+    g.inventory.forEach(function (it) {
+      var row = el('div', { class: 'inv-row' });
+      row.appendChild(el('span', { class: 'inv-name', text: it.name + (it.qty > 1 ? ' \u00d7' + it.qty : '') }));
+      row.appendChild(el('span', { class: 'inv-src', text: it.source }));
+      row.appendChild(el('span', { class: 'inv-cost', text: priceTag(it.cost) }));
+      if (it.pack) {
+        row.title = it.contents.map(function (c) { return c.name + (c.qty ? ' \u00d7' + c.qty : ''); }).join(', ');
+      }
+      if (it.bought) {
+        var rm = el('button', { type: 'button', class: 'book-chip', text: 'Remove' });
+        rm.addEventListener('click', function () {
+          update(function () { delete gs.bought[it.name]; });
+        });
+        row.appendChild(rm);
+      }
+      invCard.appendChild(row);
+    });
+    box.appendChild(invCard);
+
+    /* ---- shop ---- */
+    var shopCard = el('div', { class: 'card' });
+    shopCard.appendChild(el('h3', { text: 'Buy equipment' }));
+    var search = el('input', { type: 'search', value: gearFilter, placeholder: 'Filter by name\u2026' });
+    search.addEventListener('input', function () { gearFilter = search.value; renderGear(); });
+    shopCard.appendChild(search);
+
+    var q = gearFilter.trim().toLowerCase();
+    DND.Gear.catalog().forEach(function (shelf) {
+      var items = shelf.items.filter(function (it) { return !q || it.name.toLowerCase().indexOf(q) !== -1; });
+      if (!items.length) return;
+      shopCard.appendChild(el('div', { class: 'shop-head', text: shelf.group }));
+      if (shelf.note) shopCard.appendChild(el('p', { class: 'field-hint warn-line', text: shelf.note }));
+      var grid = el('div', { class: 'shop-grid' });
+      items.forEach(function (it) {
+        var have = gs.bought[it.name] || 0;
+        var row = el('div', { class: 'shop-row' + (have ? ' has' : '') });
+        var label = it.name;
+        var w = DND.findWeapon(it.name);
+        if (w && w.proxy) label += ' \u2014 uses ' + w.proxy + ' proficiency';
+        row.appendChild(el('span', { class: 'shop-name', text: label,
+          title: (w && w.text ? w.damage + ' \u00b7 ' + w.text : '') || (it.acText ? 'AC ' + it.acText : '') }));
+        row.appendChild(el('span', { class: 'shop-cost', text: priceTag(it.cost) }));
+        var minus = el('button', { type: 'button', class: 'qty-btn', text: '\u2212', disabled: !have });
+        var count = el('span', { class: 'qty', text: String(have) });
+        var plus = el('button', { type: 'button', class: 'qty-btn', text: '+', disabled: it.cost === null });
+        minus.addEventListener('click', function () {
+          update(function () {
+            var n = (gs.bought[it.name] || 0) - 1;
+            if (n > 0) gs.bought[it.name] = n; else delete gs.bought[it.name];
+          });
+        });
+        plus.addEventListener('click', function () {
+          update(function () { gs.bought[it.name] = (gs.bought[it.name] || 0) + 1; });
+        });
+        row.appendChild(minus); row.appendChild(count); row.appendChild(plus);
+        grid.appendChild(row);
+      });
+      shopCard.appendChild(grid);
+    });
+    box.appendChild(shopCard);
+  }
+
+  /* A line of granted gear: keep it or drop it, and pick it if it is a choice. */
+  function grantedLine(it, gs) {
+    var row = el('div', { class: 'grant-row' });
+    var cb = el('input', { type: 'checkbox' });
+    cb.checked = !gs.dropped[it.key];
+    cb.addEventListener('change', function () {
+      update(function () {
+        if (cb.checked) delete gs.dropped[it.key];
+        else gs.dropped[it.key] = true;
+      });
+    });
+    row.appendChild(cb);
+    if (it.choose) {
+      row.appendChild(DND.UI.select({
+        value: it.name || '',
+        placeholder: 'Choose ' + it.chooseLabel + '\u2026',
+        options: it.options.map(function (n) { return { value: n, label: n }; }),
+        onchange: function (v) { update(function () { gs.picks[it.key] = v; }); }
+      }));
+    } else {
+      row.appendChild(el('span', { class: 'grant-name',
+        text: (it.text || it.name) + (it.qty > 1 ? ' \u00d7' + it.qty : '') }));
+    }
+    row.appendChild(el('span', { class: 'grant-src', text: it.source }));
+    return row;
+  }
+
   function renderSheet() {
     var box = mount.sheet;
     clear(box);

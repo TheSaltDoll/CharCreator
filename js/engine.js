@@ -26,6 +26,7 @@ DND.Engine = (function () {
       hpMethod: 'average',
       hpRolls: {},
       hpManual: null,
+      gear: DND.Gear.blank(),
       raceChoices: {},
       backgroundChoices: {},
       originAsi: {},
@@ -598,7 +599,11 @@ DND.Engine = (function () {
     });
 
     /* ---------- armor class ---------- */
+    /* Equipment first: armor you are carrying becomes an AC option. */
+    var gear = DND.Gear.compute(state, classEntries, bg, scores.dex.mod);
+
     var acOptions = [{ label: 'No armor', value: 10 + scores.dex.mod, note: '10 + Dexterity modifier' }];
+    gear.acFromArmor.forEach(function (a) { acOptions.push(a); });
     classEntries.forEach(function (ce) {
       var ud = ce.cls.unarmoredDefense;
       if (!ud) return;
@@ -607,7 +612,8 @@ DND.Engine = (function () {
       acOptions.push({
         label: ce.cls.name + ' Unarmored Defense',
         value: 10 + scores[ud.abilities[0]].mod + scores[ud.abilities[1]].mod,
-        note: '10 + ' + a1.name + ' + ' + a2.name + (ud.shieldAllowed ? '. A shield still applies.' : '. No shield.')
+        note: '10 + ' + a1.name + ' + ' + a2.name + (ud.shieldAllowed ? '. A shield still applies.' : '. No shield.'),
+        shieldOk: ud.shieldAllowed !== false
       });
     });
 
@@ -618,6 +624,16 @@ DND.Engine = (function () {
         note: u.ac.base + ' + ' + DND.ABILITIES.filter(function (a) { return a.id === u.ac.ability; })[0].name + ', wearing no armor.'
       });
     });
+
+    /* A shield in your pack adds 2 to anything it may be used with. The monk's
+       Unarmored Defense is the exception: it stops working with a shield. */
+    if (gear.hasShield) {
+      acOptions.slice().forEach(function (o) {
+        if (o.shieldOk === false) return;
+        acOptions.push({ label: o.label + ' + shield', value: o.value + 2,
+                         note: o.note + ' Shield +2.', armor: o.armor });
+      });
+    }
 
     /* ---------- traits ---------- */
     var traits = [];
@@ -703,6 +719,7 @@ DND.Engine = (function () {
       creatureType: race && race.creatureType ? race.creatureType : 'Humanoid',
       initiative: initiative, hp: hp, hpPerLevel: hpPerLevel,
       acOptions: acOptions,
+      gear: gear,
       traits: traits, innateSpells: innate, ancestry: ancestry,
       spellcasting: spellcasting,
       asiSlots: asiSlotKeys(state),

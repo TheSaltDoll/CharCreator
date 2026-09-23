@@ -600,7 +600,13 @@ DND.Engine = (function () {
 
     /* ---------- armor class ---------- */
     /* Equipment first: armor you are carrying becomes an AC option. */
-    var gear = DND.Gear.compute(state, classEntries, bg, scores.dex.mod);
+    var gear = DND.Gear.compute(state, classEntries, bg, {
+      dexMod: scores.dex.mod,
+      strScore: scores.str.total,
+      isDwarf: !!(race && race.id === 'dwarf'),
+      armorProfs: armor.map(function (a) { return a.value; }),
+      weaponProfs: weapons.map(function (w) { return w.value; })
+    });
 
     var acOptions = [{ label: 'No armor', value: 10 + scores.dex.mod, note: '10 + Dexterity modifier' }];
     gear.acFromArmor.forEach(function (a) { acOptions.push(a); });

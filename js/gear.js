@@ -39,6 +39,23 @@
       .map(function (g) { return g.name; });
   }
 
+
+  var ARMOR_PROF = { light: 'Light armor', medium: 'Medium armor', heavy: 'Heavy armor', shield: 'Shields' };
+
+  /* Firearms borrow an existing weapon's proficiency: a Carbine is used with
+     Light crossbow proficiency, a Musket with Heavy crossbow, and so on. */
+  function profWeapon(w) {
+    return (w.proxy && DND.findWeapon(w.proxy)) || w;
+  }
+  function knowsWeapon(profs, w) {
+    var ref = profWeapon(w);
+    if (profs.indexOf(ref.name) !== -1) return true;
+    return profs.indexOf(ref.category === 'simple' ? 'Simple weapons' : 'Martial weapons') !== -1;
+  }
+  function knowsArmor(profs, cat) {
+    return profs.indexOf(ARMOR_PROF[cat]) !== -1;
+  }
+
   function blank() {
     return { choices: {}, picks: {}, dropped: {}, bought: {}, purse: null };
   }
@@ -86,7 +103,10 @@
     choosers: CHOOSERS,
 
     /* Everything the Equipment step and the sheet need. */
-    compute: function (state, classEntries, background, dexMod) {
+    compute: function (state, classEntries, background, ctx) {
+      ctx = ctx || {};
+      var dexMod = ctx.dexMod || 0;
+      var armorProfs = ctx.armorProfs || [], weaponProfs = ctx.weaponProfs || [];
       var gear = state.gear || blank();
       var firstClass = classEntries.length ? classEntries[0].cls.id : null;
       var start = firstClass ? startingFor(firstClass, gear) : null;
@@ -139,13 +159,46 @@
 
       /* armor you are carrying, as AC options */
       var hasShield = inventory.some(function (it) { return it.name === 'Shield'; });
-      var acFromArmor = [];
+      var acFromArmor = [], armorNotes = [], weaponNotes = [], unskilledArmor = false;
+
       inventory.forEach(function (it) {
         var a = DND.ARMOR.filter(function (x) { return x.name === it.name; })[0];
-        if (!a || a.name === 'Shield') return;
-        var dex = a.dexMax === null ? dexMod : Math.min(dexMod, a.dexMax);
-        acFromArmor.push({ label: a.name, value: a.base + dex, armor: a,
-          note: a.acText + (a.stealthDisadvantage ? ' \u00b7 stealth disadvantage' : '') });
+        if (!a) return;
+
+        if (a.name !== 'Shield') {
+          /* light armor has no Dex cap at all, so guard on the type rather
+             than on null: a missing key used to make this NaN. */
+          var dex = typeof a.dexMax === 'number' ? Math.min(dexMod, a.dexMax) : dexMod;
+          acFromArmor.push({ label: a.name, value: a.base + dex, armor: a,
+            note: a.acText + (a.stealthDisadvantage ? ' \u00b7 stealth disadvantage' : '') });
+        }
+
+        /* Strength minimum: too weak and the armor costs you 10 feet of
+           speed, though dwarves are never slowed by it (PHB 144, 20). */
+        if (a.strength && ctx.strScore !== undefined && ctx.strScore < a.strength) {
+          armorNotes.push(ctx.isDwarf
+            ? a.name + ' needs Strength ' + a.strength + '. You have ' + ctx.strScore +
+              ', but dwarves are never slowed by armor.'
+            : a.name + ' needs Strength ' + a.strength + '. With ' + ctx.strScore +
+              ', wearing it drops your speed by 10 feet.');
+        }
+
+        if (!knowsArmor(armorProfs, a.category)) {
+          unskilledArmor = true;
+          armorNotes.push('You are not proficient with ' +
+            (a.category === 'shield' ? 'shields' : a.category + ' armor') +
+            '. You still get the AC from ' + a.name + ', but you have disadvantage on any ability ' +
+            'check, saving throw, or attack roll that uses Strength or Dexterity, and you cannot cast spells.');
+        }
+      });
+
+      inventory.forEach(function (it) {
+        var w = DND.findWeapon(it.name);
+        if (!w || knowsWeapon(weaponProfs, w)) return;
+        var ref = profWeapon(w);
+        weaponNotes.push('You are not proficient with ' + w.name +
+          (ref !== w ? ' (it uses ' + ref.name + ' proficiency)' : '') +
+          '. You can still use it, but you add no proficiency bonus to its attack rolls.');
       });
 
       return {
@@ -153,7 +206,10 @@
         firstClass: firstClass, backgroundLine: background && background.equipment ? background : null,
         inventory: inventory, bought: bought, weight: Math.round(weight * 100) / 100,
         purseCp: purse, defaultPurseCp: defaultPurse, spentCp: spent, remainingCp: purse - spent,
-        acFromArmor: acFromArmor, hasShield: hasShield, pending: pending
+        acFromArmor: acFromArmor, hasShield: hasShield, pending: pending,
+        armorNotes: armorNotes, weaponNotes: weaponNotes,
+        wearingUnskilledArmor: unskilledArmor,
+        wearingArmor: acFromArmor.length > 0
       };
     },
 

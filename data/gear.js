@@ -73,9 +73,9 @@ DND.WEAPONS = [
 ];
 
 DND.ARMOR = [
-  { name: 'Padded', category: 'light', cost: 500, base: 11, stealthDisadvantage: true, weight: 8.0, acText: '11 + Dex modifier' },
-  { name: 'Leather', category: 'light', cost: 1000, base: 11, stealthDisadvantage: false, weight: 10.0, acText: '11 + Dex modifier' },
-  { name: 'Studded leather', category: 'light', cost: 4500, base: 12, stealthDisadvantage: false, weight: 13.0, acText: '12 + Dex modifier' },
+  { name: 'Padded', category: 'light', cost: 500, base: 11, dexMax: null, stealthDisadvantage: true, weight: 8.0, acText: '11 + Dex modifier' },
+  { name: 'Leather', category: 'light', cost: 1000, base: 11, dexMax: null, stealthDisadvantage: false, weight: 10.0, acText: '11 + Dex modifier' },
+  { name: 'Studded leather', category: 'light', cost: 4500, base: 12, dexMax: null, stealthDisadvantage: false, weight: 13.0, acText: '12 + Dex modifier' },
   { name: 'Hide', category: 'medium', cost: 1000, base: 12, dexMax: 2, stealthDisadvantage: false, weight: 12.0, acText: '12 + Dex modifier (max 2)' },
   { name: 'Chain shirt', category: 'medium', cost: 5000, base: 13, dexMax: 2, stealthDisadvantage: false, weight: 20.0, acText: '13 + Dex modifier (max 2)' },
   { name: 'Scale mail', category: 'medium', cost: 5000, base: 14, dexMax: 2, stealthDisadvantage: true, weight: 45.0, acText: '14 + Dex modifier (max 2)' },

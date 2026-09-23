@@ -2313,8 +2313,29 @@
     c.acOptions.forEach(function (o) {
       ac.appendChild(DND.UI.statRow(o.label, String(o.value)));
     });
-    ac.appendChild(el('p', { class: 'field-hint', text: 'Worn armor is not tracked yet. These are your unarmored figures.' }));
+    if (!c.gear.wearingArmor) {
+      ac.appendChild(el('p', { class: 'field-hint',
+        text: 'These are your unarmored figures. Buy or keep armor in step 8 and it appears here.' }));
+    }
+    c.gear.armorNotes.forEach(function (n) {
+      ac.appendChild(el('p', { class: 'field-hint warn-line', text: n }));
+    });
     box.appendChild(ac);
+
+    /* equipment: coin, load, and anything you are carrying but cannot use well */
+    if (c.gear.inventory.length || c.gear.weaponNotes.length) {
+      var eq = el('div', { class: 'sheet-section' }, [el('h4', { text: 'Equipment' })]);
+      eq.appendChild(DND.UI.statRow('Coin remaining', DND.money(c.gear.remainingCp)));
+      eq.appendChild(DND.UI.statRow('Carried', c.gear.weight + ' lb'));
+      if (c.gear.remainingCp < 0) {
+        eq.appendChild(el('p', { class: 'field-hint warn-line',
+          text: 'Overspent by ' + DND.money(-c.gear.remainingCp) + '.' }));
+      }
+      c.gear.weaponNotes.forEach(function (n) {
+        eq.appendChild(el('p', { class: 'field-hint warn-line', text: n }));
+      });
+      box.appendChild(eq);
+    }
 
     /* saves */
     var saves = el('div', { class: 'sheet-section' }, [el('h4', { text: 'Saving throws' })]);

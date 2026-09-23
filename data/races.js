@@ -5,14 +5,10 @@ window.DND = window.DND || {};
 
 /* Wizard cantrips, needed for the high elf Cantrip trait. Moves to the spell
    module when classes land. PHB + XGE. */
-DND.WIZARD_CANTRIPS = [
-  'Acid Splash', 'Blade Ward', 'Chill Touch', 'Control Flames', 'Create Bonfire',
-  'Dancing Lights', 'Fire Bolt', 'Friends', 'Frostbite', 'Gust', 'Infestation',
-  'Light', 'Mage Hand', 'Mending', 'Message', 'Mind Sliver', 'Minor Illusion',
-  'Mold Earth', 'Poison Spray', 'Prestidigitation', 'Ray of Frost',
-  'Shape Water', 'Shocking Grasp', 'Sword Burst', 'Thunderclap',
-  'Toll the Dead', 'True Strike'
-];
+/* The High Elf cantrip list used to be hardcoded here and fell behind: it was
+   missing booming blade, green-flame blade and lightning lure once Tasha's
+   reprinted them onto the wizard list. It is now read from the spell data,
+   filtered by the books in play, so it cannot drift again. */
 
 DND.DRACONIC_ANCESTRY = [
   { id: 'black',  name: 'Black',  damage: 'Acid',      breath: '5 by 30 ft. line',  save: 'dex' },
@@ -75,11 +71,11 @@ DND.RACES = [
         languages: { choose: 1 },
         traits: [
           { name: 'Elf Weapon Training', text: 'Proficiency with longsword, shortsword, shortbow, and longbow.' },
-          { name: 'Cantrip', text: 'Know one wizard cantrip. Intelligence is your spellcasting ability for it.' },
+          { name: 'Cantrip', text: 'You know one cantrip of your choice from the wizard spell list. Intelligence is your spellcasting ability for it.' },
           { name: 'Extra Language', text: 'Speak, read, and write one extra language of your choice.' }
         ],
         choices: [
-          { id: 'highElfCantrip', label: 'Wizard cantrip', type: 'option', count: 1, from: DND.WIZARD_CANTRIPS }
+          { id: 'highElfCantrip', label: 'Wizard cantrip', type: 'option', count: 1, from: 'wizardCantrips' }
         ]
       },
       {
@@ -99,7 +95,7 @@ DND.RACES = [
         traits: [
           { name: 'Superior Darkvision', text: 'Darkvision has a range of 120 feet.' },
           { name: 'Sunlight Sensitivity', text: 'Disadvantage on attack rolls and Perception checks relying on sight in direct sunlight.' },
-          { name: 'Drow Magic', text: 'Know dancing lights. At 3rd level, cast faerie fire once per long rest; at 5th, darkness once per long rest. Charisma is the spellcasting ability.' },
+          { name: 'Drow Magic', text: 'You know the dancing lights cantrip. At 3rd level you can also cast the faerie fire spell once per long rest, and at 5th level the darkness spell once per long rest. Charisma is your spellcasting ability for all three.' },
           { name: 'Drow Weapon Training', text: 'Proficiency with rapier, shortsword, and hand crossbow.' }
         ],
         innateSpells: [
@@ -167,7 +163,24 @@ DND.RACES = [
     languages: { fixed: ['common', 'draconic'], choose: 0 },
     traits: [
       { name: 'Draconic Ancestry', text: 'Choose a dragon type. It sets your breath weapon and damage resistance.' },
-      { name: 'Breath Weapon', text: 'Exhale destructive energy as an action. DC = 8 + Constitution modifier + proficiency bonus. Damage scales with level. Once per short or long rest.' },
+      /* 2d6, rising at 6th, 11th and 16th character level (PHB 34). Written
+         out for the level actually in play rather than as a scaling note. */
+      { name: 'Breath Weapon', text: function (ctx) {
+        var a = DND.DRACONIC_ANCESTRY.filter(function (d) { return d.id === ctx.ancestry; })[0];
+        var steps = [[16, 5], [11, 4], [6, 3]], dice = 2, next = 6;
+        for (var i = 0; i < steps.length; i++) {
+          if (ctx.level >= steps[i][0]) { dice = steps[i][1]; break; }
+        }
+        next = ctx.level < 6 ? 6 : ctx.level < 11 ? 11 : ctx.level < 16 ? 16 : null;
+        var save = a ? { str: 'Strength', dex: 'Dexterity', con: 'Constitution' }[a.save] : null;
+        return 'Exhale destructive energy as an action' + (a ? ' in a ' + a.breath : '') + '. ' +
+          (a ? 'Each creature in the area makes a ' + save + ' saving throw' : 'Each creature in the area makes a saving throw set by your ancestry') +
+          ', DC 8 + your Constitution modifier + your proficiency bonus, taking ' +
+          dice + 'd6' + (a ? ' ' + a.damage.toLowerCase() : '') +
+          ' damage on a failed save and half as much on a successful one' +
+          (next ? ', rising to ' + (dice + 1) + 'd6 at ' + next + 'th level' : '') +
+          '. Once per short or long rest.';
+      } },
       { name: 'Damage Resistance', text: 'Resistance to the damage type of your ancestry.' }
     ],
     choices: [
@@ -186,7 +199,7 @@ DND.RACES = [
       {
         id: 'forestGnome', name: 'Forest Gnome', source: 'PHB 37', asi: { dex: 1 },
         traits: [
-          { name: 'Natural Illusionist', text: 'Know the minor illusion cantrip. Intelligence is your spellcasting ability for it.' },
+          { name: 'Natural Illusionist', text: 'You know the minor illusion cantrip. Intelligence is your spellcasting ability for it.' },
           { name: 'Speak with Small Beasts', text: 'Communicate simple ideas with Small or smaller beasts.' }
         ],
         innateSpells: [{ level: 1, name: 'Minor Illusion', use: 'at will', ability: 'int' }]
@@ -234,7 +247,7 @@ DND.RACES = [
     languages: { fixed: ['common', 'infernal'], choose: 0 },
     traits: [
       { name: 'Hellish Resistance', text: 'Resistance to fire damage.' },
-      { name: 'Infernal Legacy', text: 'Know thaumaturgy. At 3rd level, cast hellish rebuke as a 2nd-level spell once per long rest; at 5th, darkness once per long rest. Charisma is the spellcasting ability.' }
+      { name: 'Infernal Legacy', text: 'You know the thaumaturgy cantrip. At 3rd level you can also cast the hellish rebuke spell as a 2nd-level spell once per long rest, and at 5th level the darkness spell once per long rest. Charisma is your spellcasting ability for all three.' }
     ],
     innateSpells: [
       { level: 1, name: 'Thaumaturgy', use: 'at will', ability: 'cha' },

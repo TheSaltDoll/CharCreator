@@ -416,6 +416,26 @@
     box.appendChild(wrap);
   }
 
+  /* "Black \u2014 acid, 5 by 30 ft. line (Dexterity save)" */
+  function ancestryOption(d) {
+    var save = { str: 'Strength', dex: 'Dexterity', con: 'Constitution' }[d.save];
+    return { value: d.id, label: d.name + ' \u2014 ' + d.damage.toLowerCase() + ', ' +
+      d.breath + ' (' + save + ' save)' };
+  }
+
+  /* Read from the spell data, narrowed to the books in play. */
+  function wizardCantripOptions() {
+    var lists = DND.SPELL_LISTS.wizard || {}, out = [];
+    Object.keys(lists).forEach(function (src) {
+      if (state.options.books && state.options.books[src] === false) return;
+      lists[src].forEach(function (id) {
+        var sp = DND.SPELLS[id];
+        if (sp && sp.level === 0 && out.indexOf(sp.name) === -1) out.push(sp.name);
+      });
+    });
+    return out.sort().map(DND.UI.strOpt);
+  }
+
   function renderRaceChoices(box, race) {
     DND.Engine.collectRaceChoices(race, computed.subrace).forEach(function (c) {
       if (c.showIf && state.raceChoices[c.showIf.choice] !== c.showIf.equals) return;
@@ -427,9 +447,9 @@
       } else if (c.type === 'tool') {
         options = DND.UI.toolOptions(c.from);
       } else if (c.type === 'ancestry') {
-        options = DND.DRACONIC_ANCESTRY.map(function (d) {
-          return { value: d.id, label: d.name + ' \u2014 ' + d.damage + ', ' + d.breath };
-        });
+        options = DND.DRACONIC_ANCESTRY.map(ancestryOption);
+      } else if (c.from === 'wizardCantrips') {
+        options = wizardCantripOptions();
       } else {
         options = c.from.map(DND.UI.strOpt);
       }
@@ -471,6 +491,20 @@
   }
 
   function renderRaceLanguages(box, race) {
+    /* Show what you already speak before offering more, so a choice is not
+       made blind. Racial languages only — class and background ones appear
+       in their own steps and on the sheet. */
+    var fromRace = computed.languages.filter(function (l) {
+      return l.source === (race ? race.name : '') ||
+        (computed.subrace && l.source === computed.subrace.name);
+    });
+    if (fromRace.length) {
+      box.appendChild(el('p', { class: 'field-hint',
+        text: 'You already speak ' + fromRace.map(function (l) {
+          var lg = DND.LANGUAGES.filter(function (x) { return x.id === l.value; })[0];
+          return lg ? lg.name : l.value;
+        }).join(', ') + '.' }));
+    }
     [race, computed.subrace].forEach(function (src) {
       if (!src || !src.languages || !src.languages.choose) return;
       var known = computed.languages.map(function (l) { return l.value; });
@@ -1097,11 +1131,7 @@
         .map(function (id) { return { value: String(id), label: DND.SPELLS[id].name }; });
     }
     if (def.type === 'tool') return DND.UI.toolOptions(def.from);
-    if (def.type === 'ancestry') {
-      return DND.DRACONIC_ANCESTRY.map(function (d) {
-        return { value: d.id, label: d.name + ' \u2014 ' + d.damage + ', ' + d.breath };
-      });
-    }
+    if (def.type === 'ancestry') return DND.DRACONIC_ANCESTRY.map(ancestryOption);
     if (def.type === 'favoredEnemy') return DND.FAVORED_ENEMIES.map(DND.UI.strOpt);
     if (def.type === 'terrain') return DND.FAVORED_TERRAINS.map(DND.UI.strOpt);
     if (def.type === 'proficientSkill') {

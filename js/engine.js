@@ -645,7 +645,14 @@ DND.Engine = (function () {
     var traits = [];
     function addTraits(src, label) {
       if (!src || !src.traits) return;
-      src.traits.forEach(function (t) { traits.push({ name: t.name, text: t.text, source: label }); });
+      src.traits.forEach(function (t) {
+        /* a trait may compute its text from the character, e.g. the dragonborn
+           breath weapon, whose dice and save depend on level and ancestry */
+        var txt = typeof t.text === 'function'
+          ? t.text({ level: level, ancestry: state.raceChoices.draconicAncestry, scores: scores })
+          : t.text;
+        traits.push({ name: t.name, text: txt, source: label });
+      });
     }
     addTraits(race, race ? race.name : '');
     addTraits(subrace, subrace ? subrace.name : '');

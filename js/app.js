@@ -144,6 +144,7 @@
   var METHODS = [
     { id: 'standardArray', label: 'Standard array' },
     { id: 'pointBuy', label: 'Point buy' },
+    { id: 'pointPool', label: 'Point total' },
     { id: 'manual', label: 'Enter manually' },
     { id: 'roll', label: 'Roll 4d6' }
   ];
@@ -163,7 +164,8 @@
     });
     box.appendChild(bar);
 
-    if (state.abilityMethod === 'pointBuy') renderPointBuy(box);
+    if (state.abilityMethod === 'pointPool') renderPointPool(box);
+    else if (state.abilityMethod === 'pointBuy') renderPointBuy(box);
     else if (state.abilityMethod === 'standardArray') renderArrayAssign(box, DND.STANDARD_ARRAY);
     else if (state.abilityMethod === 'roll') renderRoll(box);
     else renderManual(box);
@@ -173,7 +175,10 @@
     state.abilityMethod = id;
     if (id === 'standardArray') state.baseScores = { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 };
     else if (id === 'pointBuy') state.baseScores = { str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 };
-    else if (id === 'roll') {
+    else if (id === 'pointPool') {
+      if (!state.pointTotal) state.pointTotal = 80;
+      DND.ABILITIES.forEach(function (a) { state.baseScores[a.id] = 10; });
+    } else if (id === 'roll') {
       state.rolledPool = [];
       DND.ABILITIES.forEach(function (a) { state.baseScores[a.id] = 10; });
     }
@@ -202,32 +207,84 @@
     box.appendChild(grid);
   }
 
+  /* Assigning a fixed set of numbers — the standard array, or six rolls.
+
+     Nothing is ever disabled. Picking a value another ability already holds
+     swaps the two, so the six numbers stay a permutation of the pool and you
+     can keep rearranging. Disabling used values, as this did before, locked
+     the whole grid the moment every value was assigned. */
   function renderArrayAssign(box, array) {
-    var used = DND.ABILITIES.map(function (a) { return state.baseScores[a.id]; });
     box.appendChild(el('div', { class: 'budget' }, [
-      el('span', { text: 'Assign ' + array.join(', ') + ' \u2014 one value to each ability.' })
+      el('span', { text: 'Assign ' + array.join(', ') +
+        ' \u2014 one value to each ability. Choosing a value another ability holds swaps them.' })
+    ]));
+
+    var opts = [];
+    array.slice().sort(function (x, y) { return y - x; }).forEach(function (v) {
+      if (!opts.some(function (o) { return o.value === String(v); })) {
+        opts.push({ value: String(v), label: String(v) });
+      }
+    });
+
+    var grid = el('div', { class: 'score-grid' });
+    DND.ABILITIES.forEach(function (a) {
+      grid.appendChild(scoreCell(a, select({
+        placeholder: false, value: String(state.baseScores[a.id]), options: opts,
+        onchange: function (val) {
+          update(function () {
+            var want = parseInt(val, 10), mine = state.baseScores[a.id];
+            if (want === mine) return;
+            /* hand my old value to whoever holds the one I am taking */
+            var other = DND.ABILITIES.filter(function (o) {
+              return o.id !== a.id && state.baseScores[o.id] === want;
+            })[0];
+            if (other) state.baseScores[other.id] = mine;
+            state.baseScores[a.id] = want;
+          });
+        }
+      })));
+    });
+    box.appendChild(grid);
+  }
+
+  /* Assign points freely up to a total the player sets. Race bonuses land on
+     top of these, so the ceiling here is 18. */
+  var POOL_MIN = 3, POOL_MAX = 18;
+
+  function renderPointPool(box) {
+    var total = state.pointTotal || 80;
+    var spent = DND.ABILITIES.reduce(function (n, a) { return n + (state.baseScores[a.id] || 0); }, 0);
+    var left = total - spent;
+
+    var head = el('div', { class: 'pool-total' });
+    var inp = el('input', { type: 'number', min: '6', max: '120', value: String(total), class: 'coin-input' });
+    inp.addEventListener('change', function () {
+      update(function () {
+        var v = parseInt(inp.value, 10);
+        state.pointTotal = isNaN(v) ? 80 : Math.max(6, Math.min(120, v));
+      });
+    });
+    head.appendChild(DND.UI.field('Points to spend', inp));
+    box.appendChild(head);
+
+    box.appendChild(el('div', { class: 'budget' + (left < 0 ? ' over' : '') }, [
+      el('span', { text: left < 0
+        ? 'Over by ' + Math.abs(left) + ' point' + (Math.abs(left) === 1 ? '' : 's') + ': ' + spent + ' assigned of ' + total + '.'
+        : spent + ' of ' + total + ' assigned' + (left ? ', ' + left + ' left' : '') + '.' })
     ]));
 
     var grid = el('div', { class: 'score-grid' });
-    DND.ABILITIES.forEach(function (a, idx) {
-      var mine = state.baseScores[a.id];
-      var counts = {};
-      used.forEach(function (v, i) { if (i !== idx) counts[v] = (counts[v] || 0) + 1; });
-
-      var seen = {}, opts = [];
-      array.forEach(function (v) {
-        if (seen[v]) return;
-        seen[v] = true;
-        var total = array.filter(function (x) { return x === v; }).length;
-        opts.push({ value: String(v), label: String(v), disabled: (counts[v] || 0) >= total && v !== mine });
-      });
-
+    DND.ABILITIES.forEach(function (a) {
+      var opts = [];
+      for (var v = POOL_MIN; v <= POOL_MAX; v++) opts.push({ value: String(v), label: String(v) });
       grid.appendChild(scoreCell(a, select({
-        placeholder: false, value: String(mine), options: opts,
+        placeholder: false, value: String(state.baseScores[a.id]), options: opts,
         onchange: function (val) { update(function () { state.baseScores[a.id] = parseInt(val, 10); }); }
       })));
     });
     box.appendChild(grid);
+    box.appendChild(el('p', { class: 'field-hint',
+      text: 'Anything from ' + POOL_MIN + ' to ' + POOL_MAX + ' per ability, before racial increases.' }));
   }
 
   function renderManual(box) {
@@ -256,7 +313,9 @@
         update(function () {
           state.rolledPool = [];
           for (var i = 0; i < 6; i++) state.rolledPool.push(DND.rollAbilityScore());
-          DND.ABILITIES.forEach(function (a) { state.baseScores[a.id] = 10; });
+          /* seat them in order straight away: the grid is then a permutation
+             of the pool and every score can be swapped freely */
+          DND.ABILITIES.forEach(function (a, i) { state.baseScores[a.id] = state.rolledPool[i].total; });
         });
       }
     }));

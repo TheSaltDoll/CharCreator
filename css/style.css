@@ -996,3 +996,6 @@ select { cursor: pointer; }
 .shop-cost { font-variant-numeric: tabular-nums; color: var(--slate); min-width: 5.5rem; text-align: right; }
 .qty-btn { width: 1.5rem; height: 1.5rem; line-height: 1; padding: 0; flex: none; }
 .qty { min-width: 1.2rem; text-align: center; font-variant-numeric: tabular-nums; }
+
+/* the point-total input sits above the score grid */
+.pool-total { max-width: 12rem; margin-bottom: .6rem; }

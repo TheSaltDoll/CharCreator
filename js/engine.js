@@ -23,6 +23,7 @@ DND.Engine = (function () {
         books: { PHB: true, XGE: true, TCE: true }
       },
       classes: [{ classId: '', subclassId: '', level: 1, skills: [], tools: {}, expertise: [], choices: {}, optionalFeatures: [], spells: { cantrips: [], known: [], book: [], secrets: [], arcanum: {} } }],
+      pointTotal: 80,
       hpMethod: 'average',
       hpRolls: {},
       hpManual: null,
@@ -718,6 +719,19 @@ DND.Engine = (function () {
 
     var spellcasting = computeSpellcasting(state, classEntries, scores, pb);
     var pending = pendingChoices(state, race, subrace, bg, level, racial, classEntries);
+
+    /* the point-total method is only finished when the pool is exactly spent */
+    if (state.abilityMethod === 'pointPool') {
+      var budget = state.pointTotal || 80;
+      var used = DND.ABILITIES.reduce(function (n, a) { return n + (state.baseScores[a.id] || 0); }, 0);
+      if (used > budget) {
+        pending.push('Abilities: ' + (used - budget) + ' point' + (used - budget === 1 ? '' : 's') +
+          ' over your total of ' + budget + '.');
+      } else if (used < budget) {
+        pending.push('Abilities: ' + (budget - used) + ' point' + (budget - used === 1 ? '' : 's') +
+          ' still to assign.');
+      }
+    }
 
     return {
       name: state.name, level: level, proficiencyBonus: pb,

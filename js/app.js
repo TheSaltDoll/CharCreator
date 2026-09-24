@@ -1492,6 +1492,9 @@
       entry.spells.known = entry.spells.known.filter(function (id) {
         return p.subclassSpells.indexOf(id) === -1;
       });
+      entry.spells.cantrips = entry.spells.cantrips.filter(function (id) {
+        return p.subclassSpells.indexOf(id) === -1;
+      });
     }
     var pool = DND.spellsForClass(p.listId || cls.id, state.options.books,
       p.subclassExpanded ? p.subclassSpells : []);
@@ -1534,7 +1537,13 @@
       pickers.push(spellPicker({
         title: 'Cantrips', limit: p.cantrips, get: function () { return entry.spells.cantrips; },
         pool: function () { return pool; }, minLevel: 0, maxLevel: 0, key: cls.id + ':cantrips',
-        siblings: pickers
+        siblings: pickers,
+        /* a subclass may hand you a cantrip outright — Grave Domain's spare
+           the dying, Light Domain's light. The picker keeps only the ones at
+           its own level, so the same list serves here. */
+        granted: function () { return p.subclassExpanded ? [] : (p.subclassSpells || []); },
+        grantedNote: 'Granted by ' + (p.subName || 'your subclass') +
+          '. It does not count against your cantrips known.'
       }));
     }
 

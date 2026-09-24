@@ -999,3 +999,8 @@ select { cursor: pointer; }
 
 /* the point-total input sits above the score grid */
 .pool-total { max-width: 12rem; margin-bottom: .6rem; }
+
+/* Each change rebuilds the steps wholesale. Scroll anchoring tries to be
+   helpful by re-aiming at content that has just been replaced, which fights
+   the explicit scroll restore in render(); turn it off for the rebuilt areas. */
+.step, .sheet { overflow-anchor: none; }

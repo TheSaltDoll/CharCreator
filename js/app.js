@@ -25,7 +25,52 @@
 
   function update(fn) { fn(); render(); }
 
+  /* Every change rebuilds the whole page, which throws away the control you
+     were using: focus lands back on <body> and the viewport can drift, since
+     the browser briefly sees a much shorter document while the lower steps
+     are empty. Note where we were, then put it back. */
+
+  /* The active element's position as a chain of child indexes from <body>,
+     with its tag and class so we can tell whether the rebuilt tree still
+     has the same thing in that spot. */
+  function captureFocus() {
+    var node = document.activeElement;
+    if (!node || node === document.body || node === document.documentElement) return null;
+    var path = [], tag = node.tagName, cls = node.className, caret = null;
+    try {
+      if (node.selectionStart !== null && node.selectionStart !== undefined) {
+        caret = { start: node.selectionStart, end: node.selectionEnd };
+      }
+    } catch (e) { /* number inputs refuse to report a selection */ }
+    while (node && node !== document.body) {
+      var parent = node.parentNode;
+      if (!parent || !parent.children) return null;
+      path.push(Array.prototype.indexOf.call(parent.children, node));
+      node = parent;
+    }
+    return { path: path.reverse(), tag: tag, cls: cls, caret: caret };
+  }
+
+  function restoreFocus(saved) {
+    if (!saved) return;
+    var node = document.body;
+    for (var i = 0; i < saved.path.length; i++) {
+      node = node.children[saved.path[i]];
+      if (!node) return;
+    }
+    /* only if the rebuild put the same kind of control back in that place */
+    if (node.tagName !== saved.tag || node.className !== saved.cls) return;
+    if (typeof node.focus !== 'function') return;
+    node.focus({ preventScroll: true });
+    if (saved.caret && node.setSelectionRange) {
+      try { node.setSelectionRange(saved.caret.start, saved.caret.end); } catch (e) { /* ignore */ }
+    }
+  }
+
   function render() {
+    var x = window.scrollX, y = window.scrollY;
+    var focused = captureFocus();
+
     computed = DND.Engine.build(state);
     renderIdentity();
     renderOptions();
@@ -36,6 +81,9 @@
     renderAdvancement();
     renderGear();
     renderSheet();
+
+    restoreFocus(focused);
+    if (window.scrollX !== x || window.scrollY !== y) window.scrollTo(x, y);
   }
 
   /* ============================================================

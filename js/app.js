@@ -1836,7 +1836,8 @@
     wrap.appendChild(el('span', { class: 'field-label', text: 'Hit points' }));
 
     var bar = el('div', { class: 'method-bar' });
-    [{ id: 'average', label: 'Fixed average' }, { id: 'roll', label: 'Roll each level' }, { id: 'manual', label: 'Enter total' }]
+    [{ id: 'average', label: 'Fixed average' }, { id: 'roll', label: 'Roll each level' },
+     { id: 'percent', label: 'Share of maximum' }, { id: 'manual', label: 'Enter total' }]
       .forEach(function (m) {
         bar.appendChild(el('button', {
           type: 'button', text: m.label,
@@ -1853,6 +1854,17 @@
         update(function () { state.hpManual = parseInt(input.value, 10) || null; });
       });
       wrap.appendChild(input);
+    } else if (state.hpMethod === 'percent') {
+      var pctIn = el('input', { type: 'number', min: '0.01', max: '1', step: '0.01',
+        value: String(state.hpPercent), class: 'coin-input' });
+      pctIn.addEventListener('change', function () {
+        update(function () {
+          var v = parseFloat(pctIn.value);
+          state.hpPercent = isNaN(v) || v <= 0 ? 1 : Math.min(1, v);
+        });
+      });
+      wrap.appendChild(DND.UI.field('Share of maximum', pctIn, 'A decimal, e.g. 0.9 for nine tenths.'));
+      wrap.appendChild(el('p', { class: 'field-hint', text: computed.hp.note }));
     } else if (state.hpMethod === 'roll') {
       var rollBar = el('div', { class: 'pool' });
       rollBar.appendChild(el('button', {

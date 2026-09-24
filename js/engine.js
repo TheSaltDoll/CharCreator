@@ -25,6 +25,7 @@ DND.Engine = (function () {
       classes: [{ classId: '', subclassId: '', level: 1, skills: [], tools: {}, expertise: [], choices: {}, optionalFeatures: [], spells: { cantrips: [], known: [], book: [], secrets: [], arcanum: {} } }],
       pointTotal: 80,
       hpMethod: 'average',
+      hpPercent: 0.9,
       hpRolls: {},
       hpManual: null,
       gear: DND.Gear.blank(),
@@ -556,8 +557,9 @@ DND.Engine = (function () {
       });
     });
 
-    var hp = computeHp(state, classEntries, scores.con.mod, hpPerLevel, level);
-    if (hp.total !== null && subclassFlatHp && state.hpMethod !== 'manual') {
+    var hp = computeHp(state, classEntries, scores.con.mod, hpPerLevel, level, subclassFlatHp);
+    /* the percentage method already folded these into the maximum it scaled */
+    if (hp.total !== null && subclassFlatHp && state.hpMethod !== 'manual' && state.hpMethod !== 'percent') {
       hp.total += subclassFlatHp;
       hp.subclassBonus = subclassFlatHp;
     }
@@ -804,7 +806,7 @@ DND.Engine = (function () {
     return id;
   }
 
-  function computeHp(state, classEntries, conMod, hpPerLevel, level) {
+  function computeHp(state, classEntries, conMod, hpPerLevel, level, subclassFlatHp) {
     if (!classEntries.length) {
       return { total: null, note: 'Choose a class to compute hit points.', dice: [] };
     }
@@ -813,6 +815,26 @@ DND.Engine = (function () {
         total: parseInt(state.hpManual, 10) || 0,
         note: 'Entered by hand.',
         dice: classEntries.map(function (ce) { return ce.level + 'd' + ce.cls.hitDie; })
+      };
+    }
+
+    /* A share of the best you could possibly roll. Every level takes its full
+       hit die, Constitution and any per-level bonuses are added, and the whole
+       figure is scaled and rounded to nearest. */
+    if (state.hpMethod === 'percent') {
+      var pct = parseFloat(state.hpPercent);
+      if (isNaN(pct) || pct <= 0) pct = 1;
+      var max = 0;
+      classEntries.forEach(function (ce) { max += ce.level * ce.cls.hitDie; });
+      max += (conMod + hpPerLevel) * level + (subclassFlatHp || 0);
+      var exact = max * pct;
+      return {
+        total: Math.max(1, Math.round(exact)),
+        max: max, percent: pct, exact: exact,
+        note: 'Maximum ' + max + ' \u00d7 ' + pct + ' = ' + (Math.round(exact * 100) / 100) +
+              ', rounded to ' + Math.max(1, Math.round(exact)) + '.',
+        dice: classEntries.map(function (ce) { return ce.level + 'd' + ce.cls.hitDie; }),
+        conPerLevel: conMod
       };
     }
 

@@ -1487,6 +1487,12 @@
     }
 
     entry.spells = entry.spells || blankSpells();
+    /* Free any slot spent on a spell the subclass grants outright. */
+    if (p.subclassSpells && !p.subclassExpanded) {
+      entry.spells.known = entry.spells.known.filter(function (id) {
+        return p.subclassSpells.indexOf(id) === -1;
+      });
+    }
     var pool = DND.spellsForClass(p.listId || cls.id, state.options.books,
       p.subclassExpanded ? p.subclassSpells : []);
     /* Divine Soul opens the cleric list alongside the sorcerer's. */
@@ -1558,6 +1564,9 @@
         key: cls.id + ':known', siblings: pickers,
         caps: p.knownCaps,
         schoolCaps: p.schoolCaps,
+        granted: function () { return p.subclassExpanded ? [] : (p.subclassSpells || []); },
+        grantedNote: 'Always prepared by ' + (p.subName || 'your subclass') +
+          '. It does not count against the number you prepare.',
         note: p.limitLabel === 'prepared'
           ? 'You may swap these after a long rest.'
           : 'You may replace one when you gain a level in this class. Each spell had to be learned at a level that could already cast it, so the higher levels are limited to what you could have picked up along the way.'
@@ -1640,11 +1649,25 @@
       drawList();
     });
 
+    /* Spells the subclass always has prepared. They sit in the list alongside
+       the rest so it reads consistently — a cleric domain grants several
+       spells that are not on the cleric list at all, and those used to be
+       missing from the chooser entirely while their on-list siblings showed. */
+    function grantedIds() { return opts.granted ? opts.granted() : []; }
+    function isGranted(id) { return grantedIds().indexOf(id) !== -1; }
+
     function available() {
-      return opts.pool().filter(function (id) {
+      var out = opts.pool().filter(function (id) {
         var sp = DND.SPELLS[id];
         return sp && sp.level >= opts.minLevel && sp.level <= opts.maxLevel;
       });
+      grantedIds().forEach(function (id) {
+        var sp = DND.SPELLS[id];
+        if (sp && sp.level >= opts.minLevel && sp.level <= opts.maxLevel && out.indexOf(id) === -1) {
+          out.push(id);
+        }
+      });
+      return out;
     }
 
     /* Ceilings on how many spells of each level or higher this picker may
@@ -1724,6 +1747,7 @@
     var lastSig = null;  /* pool signature, so the list is only rebuilt when it changes */
 
     function toggle(id, on) {
+      if (isGranted(id)) return;   /* locked: you have it either way */
       var arr = opts.get();
       var i = arr.indexOf(id);
       if (on && i === -1) arr.push(id);
@@ -1774,16 +1798,18 @@
       var at = tally();
       Object.keys(items).forEach(function (id) {
         var it = items[id];
-        var on = chosen.indexOf(Number(id)) !== -1;
+        var given = isGranted(Number(id));
+        var on = given || chosen.indexOf(Number(id)) !== -1;
         /* A full list already trips every ceiling, so check it first and
            report the simpler reason. */
-        var isFull = !on && full;
-        var blockedAt = (on || isFull) ? 0 : capBlocks(at, it.level, DND.SPELLS[id]);
+        var isFull = !given && !on && full;
+        var blockedAt = (given || on || isFull) ? 0 : capBlocks(at, it.level, DND.SPELLS[id]);
         it.cb.checked = on;
-        it.cb.disabled = isFull || !!blockedAt;
-        it.label.className = 'sp-item' + (on ? ' on' : '') +
+        it.cb.disabled = given || isFull || !!blockedAt;
+        it.label.className = 'sp-item' + (on ? ' on' : '') + (given ? ' given' : '') +
           (blockedAt ? ' capped' : (isFull ? ' full' : ''));
-        it.label.title = blockedAt ? capReason(it.level, blockedAt) : it.baseTitle;
+        it.label.title = given ? (opts.grantedNote || 'Always prepared.') + '\n\n' + it.baseTitle
+                               : (blockedAt ? capReason(it.level, blockedAt) : it.baseTitle);
       });
       Object.keys(capEls).forEach(function (lv) {
         var c = capEls[lv];
@@ -1842,10 +1868,11 @@
         listBox.appendChild(head);
         var grid = el('div', { class: 'sp-grid' });
         byLevel[lv].sort(function (a, b) { return a.name.localeCompare(b.name); }).forEach(function (sp) {
-          var on = chosen.indexOf(sp.id) !== -1;
-          var isFull = !on && chosen.length >= opts.limit;
-          var blockedAt = (on || isFull) ? 0 : capBlocks(at, sp.level, sp);
-          var stop = isFull || !!blockedAt;
+          var given = isGranted(sp.id);
+          var on = given || chosen.indexOf(sp.id) !== -1;
+          var isFull = !given && !on && chosen.length >= opts.limit;
+          var blockedAt = (given || on || isFull) ? 0 : capBlocks(at, sp.level, sp);
+          var stop = given || isFull || !!blockedAt;
           var marks = [];
           if (sp.concentration) marks.push('C');
           if (sp.ritual) marks.push('R');
@@ -1853,9 +1880,10 @@
               ' \u00b7 ' + sp.components + ' \u00b7 ' + sp.duration + ' \u00b7 ' + sp.source +
               (sp.material ? '\nMaterial: ' + sp.material : '');
           var lbl = el('label', {
-            class: 'sp-item' + (on ? ' on' : '') +
+            class: 'sp-item' + (on ? ' on' : '') + (given ? ' given' : '') +
               (blockedAt ? ' capped' : (isFull ? ' full' : '')),
-            title: blockedAt ? capReason(sp.level, blockedAt) : baseTitle
+            title: given ? (opts.grantedNote || 'Always prepared.') + '\n\n' + baseTitle
+                         : (blockedAt ? capReason(sp.level, blockedAt) : baseTitle)
           });
           var cb = el('input', { type: 'checkbox' });
           cb.checked = on;

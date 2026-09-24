@@ -1004,3 +1004,9 @@ select { cursor: pointer; }
    helpful by re-aiming at content that has just been replaced, which fights
    the explicit scroll restore in render(); turn it off for the rebuilt areas. */
 .step, .sheet { overflow-anchor: none; }
+
+/* Subclass spells you always have prepared: shown in the list, ticked and
+   locked, so the chooser reads consistently and no slot is wasted on them. */
+.sp-item.given { opacity: .75; cursor: help; }
+.sp-item.given .sp-name { font-style: italic; }
+.sp-item.given:hover { background: none; }

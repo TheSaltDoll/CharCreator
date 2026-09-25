@@ -14,6 +14,12 @@
       document.getElementById('file-load').click();
     });
     document.getElementById('file-load').addEventListener('change', loadJson);
+    document.getElementById('btn-print').addEventListener('click', function () {
+      renderPrint();
+      window.print();
+    });
+    /* Ctrl+P or the browser menu print the same sheet, rebuilt from the latest state */
+    window.addEventListener('beforeprint', renderPrint);
     document.getElementById('btn-reset').addEventListener('click', function () {
       if (confirm('Clear this character and start over?')) {
         state = DND.Engine.blankState();
@@ -103,6 +109,19 @@
       'Level ' + computed.level + ' \u00b7 proficiency bonus ' +
       DND.formatMod(computed.proficiencyBonus) + ' \u00b7 ' + computed.xp.toLocaleString() +
       ' XP. Level follows from the classes you take in step 6.'));
+
+    /* Typing only touches state: nothing else on the page shows the player's name. */
+    var playerInput = el('input', { type: 'text', value: state.playerName || '', placeholder: 'Your name' });
+    playerInput.addEventListener('input', function () { state.playerName = playerInput.value; });
+
+    box.appendChild(el('div', { class: 'row' }, [
+      field('Player name', playerInput),
+      field('Alignment', select({
+        value: state.alignment || '', placeholder: 'Not chosen', ariaLabel: 'Alignment',
+        options: DND.ALIGNMENTS.map(function (a) { return { value: a, label: a }; }),
+        onchange: function (v) { update(function () { state.alignment = v; }); }
+      }))
+    ]));
   }
 
   /* ============================================================
@@ -2440,6 +2459,7 @@
       descBits.push(c.classes.map(function (ci) { return ci.name + ' ' + ci.level; }).join(' / '));
     }
     if (c.background) descBits.push(c.background.name);
+    if (c.alignment) descBits.push(c.alignment);
 
     box.appendChild(el('div', { class: 'sheet-name' }, [
       el('h3', { text: c.name || 'Unnamed adventurer' }),
@@ -2507,6 +2527,21 @@
       ac.appendChild(el('p', { class: 'field-hint warn-line', text: n }));
     });
     box.appendChild(ac);
+
+    /* attacks for the weapons carried, worked out in js/gear.js */
+    if (c.attacks.length) {
+      var atk = el('div', { class: 'sheet-section' }, [el('h4', { text: 'Attacks' })]);
+      c.attacks.forEach(function (a) {
+        atk.appendChild(DND.UI.statRow(a.name,
+          DND.formatMod(a.toHit) + '  \u00b7  ' + a.damage + (a.damageType ? ' ' + a.damageType : '')));
+        var extra = [];
+        if (a.twoHanded) extra.push('two-handed ' + a.twoHanded);
+        if (a.thrown && a.thrown.damage) extra.push('thrown ' + a.thrown.damage);
+        extra = extra.concat(a.notes.filter(function (n) { return n.indexOf('Not proficient') !== 0; }));
+        if (extra.length) atk.appendChild(el('p', { class: 'field-hint', text: extra.join('; ') }));
+      });
+      box.appendChild(atk);
+    }
 
     /* equipment: coin, load, and anything you are carrying but cannot use well */
     if (c.gear.inventory.length || c.gear.weaponNotes.length) {
@@ -2722,6 +2757,21 @@
     var seen = {}, out = [];
     arr.forEach(function (a) { if (!seen[a]) { seen[a] = 1; out.push(a); } });
     return out;
+  }
+
+  /* ============================================================
+     Printed sheet: built on demand from the latest state (js/print.js)
+     ============================================================ */
+  function renderPrint() {
+    var mountEl = document.getElementById('print-sheet');
+    try {
+      DND.Print.render(DND.Engine.build(state), state, mountEl);
+    } catch (e) {
+      /* never leave a blank page: say what failed instead */
+      clear(mountEl);
+      mountEl.appendChild(el('p', { text: 'The sheet could not be drawn: ' + e.message }));
+      if (window.console) console.error(e);
+    }
   }
 
   /* ============================================================

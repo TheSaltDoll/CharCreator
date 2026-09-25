@@ -7,6 +7,8 @@ DND.Engine = (function () {
   function blankState() {
     return {
       name: '',
+      playerName: '',
+      alignment: '',
       abilityMethod: 'standardArray',
       baseScores: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 },
       rolledPool: [],
@@ -601,14 +603,33 @@ DND.Engine = (function () {
       };
     });
 
+    /* ---------- fighting styles ---------- */
+    /* Every Fighting Style chosen from any class or subclass feature, by id.
+       Only picks the current level allows count: a stored array can be
+       longer after a level drop. */
+    var fightingStyles = {};
+    classEntries.forEach(function (ce) {
+      featureChoices(ce).forEach(function (fc) {
+        if (fc.def.type !== 'fightingStyle') return;
+        var v = (ce.entry.choices || {})[fc.def.id];
+        [].concat(v || []).slice(0, fc.count || 1).forEach(function (id) {
+          if (id) fightingStyles[id] = true;
+        });
+      });
+    });
+    var featIds = state.feats.map(function (f) { return f.featId; });
+
     /* ---------- armor class ---------- */
     /* Equipment first: armor you are carrying becomes an AC option. */
+    var weaponProfList = weapons.map(function (w) { return w.value; });
     var gear = DND.Gear.compute(state, classEntries, bg, {
       dexMod: scores.dex.mod,
       strScore: scores.str.total,
       isDwarf: !!(race && race.id === 'dwarf'),
       armorProfs: armor.map(function (a) { return a.value; }),
-      weaponProfs: weapons.map(function (w) { return w.value; })
+      weaponProfs: weaponProfList,
+      armoredAcBonus: fightingStyles.defense ? 1 : 0,
+      firearmsProficient: featIds.indexOf('gunner') !== -1
     });
 
     var acOptions = [{ label: 'No armor', value: 10 + scores.dex.mod, note: '10 + Dexterity modifier' }];
@@ -640,9 +661,32 @@ DND.Engine = (function () {
       acOptions.slice().forEach(function (o) {
         if (o.shieldOk === false) return;
         acOptions.push({ label: o.label + ' + shield', value: o.value + 2,
-                         note: o.note + ' Shield +2.', armor: o.armor });
+                         note: o.note + ' Shield +2.', armor: o.armor,
+                         proficient: o.proficient !== false && gear.shieldProficient });
       });
     }
+
+    /* ---------- attacks ---------- */
+    /* To-hit and damage for each weapon carried; the rules live in js/gear.js. */
+    var martialArts = null, kensei = [], hexWarrior = false;
+    classEntries.forEach(function (ce) {
+      var sub = subclassOf(ce);
+      if (ce.cls.id === 'monk') {
+        martialArts = DND.columnValue(ce.cls, 'martialArts', ce.level);
+        if (sub && sub.id === 'kensei') {
+          var allowed = DND.subColumnValue(sub, 'kenseiWeapons', ce.level) || 0;
+          kensei = [].concat((ce.entry.choices || {}).kenseiWeapons || []).filter(Boolean).slice(0, allowed);
+        }
+      }
+      if (ce.cls.id === 'warlock' && sub && sub.id === 'hexblade') hexWarrior = true;
+    });
+    var attacks = DND.Gear.attacks(gear.inventory, {
+      mods: { str: scores.str.mod, dex: scores.dex.mod, con: scores.con.mod,
+              int: scores.int.mod, wis: scores.wis.mod, cha: scores.cha.mod },
+      pb: pb, profs: weaponProfList, firearms: featIds.indexOf('gunner') !== -1,
+      styles: fightingStyles, feats: featIds, martialArts: martialArts,
+      kensei: kensei, hexWarrior: hexWarrior, small: size === 'Small'
+    });
 
     /* ---------- traits ---------- */
     var traits = [];
@@ -736,7 +780,8 @@ DND.Engine = (function () {
     }
 
     return {
-      name: state.name, level: level, proficiencyBonus: pb,
+      name: state.name, playerName: state.playerName || '', alignment: state.alignment || '',
+      level: level, proficiencyBonus: pb,
       race: race, subrace: subrace, background: bg,
       classes: classInfo, classEntries: classEntries,
       scores: scores, racialAsi: racial,
@@ -748,7 +793,7 @@ DND.Engine = (function () {
       creatureType: race && race.creatureType ? race.creatureType : 'Humanoid',
       initiative: initiative, hp: hp, hpPerLevel: hpPerLevel,
       acOptions: acOptions,
-      gear: gear,
+      gear: gear, attacks: attacks, fightingStyles: Object.keys(fightingStyles),
       traits: traits, innateSpells: innate, ancestry: ancestry,
       spellcasting: spellcasting,
       asiSlots: asiSlotKeys(state),

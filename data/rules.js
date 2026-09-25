@@ -127,6 +127,13 @@ DND.abilityModifier = function (score) {
   return Math.floor((score - 10) / 2);
 };
 
+/* The nine alignments. PHB chapter 4, Character Details (contents: p. 121). */
+DND.ALIGNMENTS = [
+  'Lawful good', 'Neutral good', 'Chaotic good',
+  'Lawful neutral', 'Neutral', 'Chaotic neutral',
+  'Lawful evil', 'Neutral evil', 'Chaotic evil'
+];
+
 DND.formatMod = function (n) {
   return (n >= 0 ? '+' : '\u2212') + Math.abs(n);
 };

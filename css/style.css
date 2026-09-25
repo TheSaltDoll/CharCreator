@@ -541,12 +541,7 @@ select { cursor: pointer; }
   .score-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
-@media print {
-  .masthead-actions, .step, .status, .forthcoming { display: none; }
-  body { background: #fff; }
-  .shell { display: block; padding: 0; }
-  .sheet { position: static; border: none; max-height: none; }
-}
+/* Printing is handled by the printed sheet at the end of this file. */
 
 @media (prefers-reduced-motion: no-preference) {
   .ability-cell .score { transition: color 160ms ease; }
@@ -923,9 +918,6 @@ select { cursor: pointer; }
 }
 .ss-names { flex: 1; }
 
-@media print {
-  .sp-list, .spell-picker input[type="search"] { display: none; }
-}
 
 /* ============================================================
    Subclass
@@ -1010,3 +1002,237 @@ select { cursor: pointer; }
 .sp-item.given { opacity: .75; cursor: help; }
 .sp-item.given .sp-name { font-style: italic; }
 .sp-item.given:hover { background: none; }
+
+/* ============================================================
+   Printed character sheet (js/print.js)
+
+   US Letter with half-inch margins, arranged like the official sheet.
+   Everything is drawn with borders and text, never background fills, so
+   it prints the same with "background graphics" on or off. Markers are
+   discs made of thick borders for the same reason. Sections grow with
+   their content; only the boxes left for handwriting have set heights.
+   ============================================================ */
+.print-sheet { display: none; }
+
+@page { size: letter; margin: 0.5in; }
+
+@media print {
+  html, body { background: #fff; }
+  body { margin: 0; }
+  body > *:not(.print-sheet) { display: none !important; }
+  .print-sheet { display: block; }
+}
+
+.print-sheet {
+  --p-ink:    #1C1E24;
+  --p-line:   #55514A;
+  --p-faint:  #AFA999;
+  --p-label:  #5C6472;
+  --p-accent: #856021;
+  --p-warn:   #77302B;
+  color: var(--p-ink);
+  font-family: var(--sans);
+  font-size: 7.4pt;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+.print-sheet p { margin: 0; }
+.ps-page + .ps-page { break-before: page; }
+
+/* labels: small, sentence case, quiet */
+.ps-lbl { font-size: 6.2pt; color: var(--p-label); letter-spacing: .02em; line-height: 1.2; }
+.ps-dim { color: var(--p-label); }
+.ps-warn { color: var(--p-warn); }
+.ps-run { font-weight: 600; }
+
+/* ---------- header band ---------- */
+.ps-head {
+  display: grid; grid-template-columns: 2.45in 1fr; column-gap: .18in; align-items: end;
+  padding-bottom: .07in; margin-bottom: .1in; border-bottom: 1.5px solid var(--p-accent);
+}
+.ps-name-val {
+  font-family: var(--serif); font-size: 18pt; font-weight: 600; line-height: 1.1;
+  min-height: .3in; border-bottom: 1px solid var(--p-line); padding-bottom: 1pt;
+}
+.ps-name .ps-lbl { margin-top: 2pt; }
+.ps-meta { display: grid; grid-template-columns: repeat(3, 1fr); column-gap: .14in; row-gap: .06in; }
+.ps-field-val { font-size: 8.4pt; min-height: .19in; border-bottom: 1px solid var(--p-faint); padding-top: 2pt; }
+.ps-field .ps-lbl { margin-top: 1.5pt; }
+
+.ps-notice {
+  border: 1px solid var(--p-warn); border-left-width: 3px; border-radius: 3px;
+  padding: .05in .08in; margin-bottom: .1in; font-size: 7pt; break-inside: avoid;
+}
+.ps-notice strong { color: var(--p-warn); }
+.ps-notice p + p { margin-top: 2pt; }
+
+/* ---------- three columns ---------- */
+.ps-cols { display: grid; grid-template-columns: 2.55in 2.45in 1fr; column-gap: .12in; align-items: start; }
+.ps-col > * + * { margin-top: .08in; }
+
+.ps-box { border: 1px solid var(--p-line); border-radius: 4px; padding: .045in .07in .06in; }
+.ps-box > .ps-lbl:first-child { font-weight: 600; margin-bottom: 3pt; }
+.ps-write { min-height: .2in; }
+
+/* values carry a centred caption beneath; lists carry a heading above */
+.ps-stat, .ps-hp, .ps-temp, .ps-hd, .ps-death, .ps-trio, .ps-duo, .ps-pill, .ps-abl { break-inside: avoid; }
+.ps-hp > .ps-lbl:last-child, .ps-temp > .ps-lbl:last-child,
+.ps-hd > .ps-lbl:last-child, .ps-death > .ps-lbl:last-child { text-align: center; font-weight: 600; margin-top: 2pt; }
+
+/* abilities: the one bold element on the page */
+.ps-abl-wrap { display: grid; grid-template-columns: .8in 1fr; column-gap: .08in; }
+.ps-abl {
+  border: 1px solid var(--p-line); border-top: 2px solid var(--p-accent); border-radius: 6px;
+  text-align: center; padding: 3pt 2pt 4pt; margin-bottom: .075in;
+}
+.ps-abl-name { font-size: 6.2pt; font-weight: 600; color: var(--p-label); }
+.ps-abl-mod { font-family: var(--serif); font-size: 19pt; font-weight: 600; line-height: 1.05; }
+.ps-abl-score {
+  display: inline-block; min-width: .34in; margin-top: 1pt; padding: 0 5pt;
+  border: 1px solid var(--p-line); border-radius: 999px; font-size: 8pt;
+}
+.ps-abl-side > * + * { margin-top: .07in; }
+
+.ps-pill {
+  display: flex; align-items: center; gap: 5pt;
+  border: 1px solid var(--p-line); border-radius: 999px; padding: 2pt 7pt 2pt 2pt;
+}
+.ps-pill .ps-lbl { font-weight: 600; }
+.ps-pill-val {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: .27in; height: .27in; border: 1px solid var(--p-line); border-radius: 50%;
+  font-family: var(--serif); font-size: 9.5pt; font-weight: 600;
+}
+.ps-pill-square { flex: none; width: .2in; height: .2in; margin: 1pt 2pt 1pt 3pt; border: 1px solid var(--p-ink); border-radius: 3px; }
+
+.ps-check { display: grid; grid-template-columns: 8pt 15pt 1fr; align-items: center; column-gap: 4pt; line-height: 1.34; }
+.ps-check-val { text-align: right; border-bottom: 1px solid var(--p-faint); }
+.ps-key { margin-top: 3pt; font-size: 6pt; color: var(--p-label); white-space: pre; }
+.ps-prof { font-size: 7pt; }
+.ps-prof + .ps-prof { margin-top: 3pt; }
+
+/* markers: discs made of borders, so they print without background colour */
+.pd {
+  display: inline-block; box-sizing: border-box; width: 7px; height: 7px;
+  border: 1px solid var(--p-ink); border-radius: 50%; vertical-align: middle;
+}
+.pd-on, .pd-expert { border-width: 3.5px; }
+.pd-expert { outline: 1px solid var(--p-ink); outline-offset: 1px; }
+.pd-half { border-width: 3.5px; border-color: var(--p-ink) var(--p-ink) var(--p-faint) var(--p-faint); }
+.pd-none { display: inline-block; width: 7px; }
+.pdia {
+  display: inline-block; box-sizing: border-box; width: 6px; height: 6px;
+  border: 3px solid var(--p-ink); transform: rotate(45deg); vertical-align: middle;
+}
+.ps-circles .pd { width: 9px; height: 9px; margin-left: 3px; }
+
+/* ---------- middle column ---------- */
+.ps-trio { display: grid; grid-template-columns: repeat(3, 1fr); column-gap: .06in; }
+.ps-stat { border: 1px solid var(--p-line); border-radius: 6px; text-align: center; padding: 3pt 2pt 3pt; }
+.ps-stat-ac { border-radius: 6px 6px 45% 45% / 6px 6px 22% 22%; padding-bottom: 6pt; }
+.ps-stat-val { font-family: var(--serif); font-size: 15pt; font-weight: 600; line-height: 1.15; }
+.ps-stat .ps-lbl { font-weight: 600; }
+.ps-ac-notes { font-size: 6.3pt; color: var(--p-label); margin-top: 3pt !important; }
+.ps-ac-notes p + p { margin-top: 1.5pt; }
+.ps-ac-notes .ps-warn { color: var(--p-warn); }
+
+.ps-hp-max { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--p-faint); padding-bottom: 1pt; }
+.ps-hp-max-val { font-family: var(--serif); font-size: 12pt; font-weight: 600; }
+.ps-hp .ps-write { height: .5in; }
+.ps-temp .ps-write { height: .36in; }
+.ps-duo { display: grid; grid-template-columns: 1fr 1fr; column-gap: .06in; }
+.ps-hd-total { display: flex; gap: 3pt; align-items: baseline; border-bottom: 1px solid var(--p-faint); padding-bottom: 1pt; }
+.ps-hd .ps-write { height: .2in; }
+.ps-death-row { display: flex; justify-content: space-between; align-items: center; margin: 2pt 0 3pt; }
+
+.ps-table { width: 100%; border-collapse: collapse; }
+.ps-table th { font-size: 6pt; font-weight: 500; color: var(--p-label); text-align: left; padding: 0 2pt 2pt; }
+.ps-num { text-align: center !important; white-space: nowrap; }
+.ps-atk-group { break-inside: avoid; }
+.ps-atk td { border-bottom: 1px solid var(--p-faint); padding: 2pt 2pt 1.5pt; }
+.ps-atk-name { font-weight: 600; }
+.ps-atk-note td { font-size: 6.2pt; color: var(--p-label); padding: 1pt 2pt 3pt; border-bottom: 1px solid var(--p-faint); }
+.ps-atk-group .ps-atk:has(+ .ps-atk-note) td { border-bottom: none; }
+.ps-atk-blank td { height: 12pt; }
+.ps-castline { font-size: 6.8pt; margin-top: 4pt !important; }
+
+.ps-equip { display: grid; grid-template-columns: .44in 1fr; column-gap: .07in; align-items: start; }
+.ps-coin {
+  display: flex; flex-direction: column; align-items: center; break-inside: avoid;
+  border: 1px solid var(--p-line); border-radius: 5px; padding: 1pt 1pt 2pt; margin-bottom: 3pt;
+}
+.ps-coin-lbl { font-size: 5.8pt; color: var(--p-label); font-weight: 600; }
+.ps-coin-val { font-size: 8.4pt; min-height: 10pt; }
+.ps-items { list-style: none; margin: 0; padding: 0; }
+.ps-items li { border-bottom: 1px solid var(--p-faint); padding: 1pt 0; break-inside: avoid; }
+.ps-bgline { margin-top: 3pt !important; font-size: 6.8pt; }
+.ps-equip-list > p:last-child { margin-top: 3pt; font-size: 6.4pt; }
+
+/* ---------- right column ---------- */
+.ps-traits .ps-write { height: .78in; }
+.ps-short .ps-write { height: .5in; }
+.ps-group {
+  font-family: var(--serif); font-size: 8.2pt; font-weight: 600; margin: 5pt 0 2pt;
+  padding-bottom: 1pt; border-bottom: 1px solid var(--p-faint); break-after: avoid;
+}
+.ps-features > .ps-lbl + .ps-group { margin-top: 0; }
+.ps-kv { display: flex; justify-content: space-between; gap: 6pt; font-size: 7pt; }
+.ps-kv-val { text-align: right; }
+.ps-feat { font-size: 7pt; margin: 2.5pt 0 0 !important; break-inside: avoid; }
+
+/* ---------- page 2: details, to write in ---------- */
+.ps-details-grid { display: grid; grid-template-columns: 2.6in 1fr; column-gap: .12in; height: 8.95in; }
+.ps-details-grid .ps-col { display: flex; flex-direction: column; }
+.ps-details-grid .ps-box { display: flex; flex-direction: column; position: relative; }
+.ps-details-grid .ps-write { flex: 1; }
+.ps-appearance, .ps-allies { flex: 0 0 3.2in; }
+.ps-additional { flex: 0 0 2.85in; }
+.ps-backstory, .ps-treasure { flex: 1; }
+.ps-symbol {
+  position: absolute; top: .2in; right: .08in; width: 1.45in; height: 1.6in;
+  display: flex; flex-direction: column; border: 1px solid var(--p-line); border-radius: 4px; padding: 3pt 5pt;
+}
+.ps-symbol .ps-lbl:first-child { border-bottom: 1px solid var(--p-faint); padding-bottom: 8pt; }
+.ps-symbol .ps-lbl:last-child { text-align: center; }
+
+/* ---------- page 3: spells ---------- */
+.ps-head-spells { grid-template-columns: 1.9in 1fr; }
+.ps-casters th { white-space: nowrap; }
+.ps-casters td { padding: 1pt 3pt; font-size: 8pt; vertical-align: middle; }
+.ps-cast-class { font-weight: 600; }
+.ps-num-big { font-family: var(--serif); font-size: 12pt; font-weight: 600; text-align: center; }
+.ps-casters .ps-dim .pd { width: 9px; height: 9px; margin-left: 2pt; }
+.ps-legend { margin-bottom: .06in !important; font-size: 6.4pt; color: var(--p-label); white-space: pre-wrap; }
+
+.ps-level { margin-top: .1in; }
+.ps-level-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12pt;
+  border-bottom: 1.5px solid var(--p-accent); padding-bottom: 2pt; margin-bottom: 1pt; break-after: avoid;
+}
+.ps-level-name { font-family: var(--serif); font-size: 10pt; font-weight: 600; margin: 0; }
+.ps-slots { font-size: 7.4pt; white-space: pre; }
+.ps-spells td { padding: 1.6pt 3pt; border-bottom: 1px solid var(--p-faint); vertical-align: top; font-size: 7.2pt; }
+.ps-spells th { padding-left: 3pt; }
+.ps-spell-row { break-inside: avoid; }
+.ps-mark { width: 9pt; }
+.ps-mark .pd, .ps-mark .pdia { vertical-align: 0; }
+.ps-spell { width: 30%; }
+.ps-spell-name { font-weight: 600; }
+.ps-spell-sub { font-size: 6.2pt; color: var(--p-label); }
+.ps-src { width: 24pt; color: var(--p-label); }
+.ps-spell-blank td { height: 13pt; }
+.ps-tag {
+  display: inline-block; margin-left: 3pt; padding: 0 1.6pt; vertical-align: 1px;
+  border: 1px solid var(--p-line); border-radius: 2px; font-size: 5.6pt; line-height: 1.25; font-weight: 600;
+}
+.ps-innate td:first-child { width: 26%; }
+/* spell tables: fixed widths so columns line up across levels */
+.ps-spells:not(.ps-innate) { table-layout: fixed; }
+.ps-spells .sc-mark { width: 12pt; }
+.ps-spells .sc-name { width: 26%; }
+.ps-spells .sc-time { width: 11%; }
+.ps-spells .sc-range { width: 15%; }
+.ps-spells .sc-comp { width: 9%; }
+.ps-spells .sc-dur { width: auto; }
+.ps-spells .sc-class { width: 9%; }
+.ps-spells .sc-book { width: 26pt; }

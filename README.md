@@ -89,37 +89,65 @@ feats, with prerequisites checked against your current scores and proficiencies.
 Multiclassing, and Tasha's Optional Class Features, each behind its own toggle.
 Spell sources can be switched on and off per book, which resizes every spell list.
 
+**Identity.** Character name, player name, and alignment (the nine from the Player's
+Handbook). Saves made before player name and alignment existed load with both blank.
+
+**Equipment and attacks.** Starting equipment from your first class, a purse seeded
+from your background's gold, and a shop. Carried armor becomes armor class options,
+and every carried weapon gets an attack line with its to-hit and damage. The ability
+follows the book (Strength for melee, Dexterity for ranged, either for finesse, the
+melee ability for a thrown melee weapon, Dexterity and the Martial Arts die for monk
+and kensei weapons). Proficiency counts firearms through the weapon they borrow it
+from, or outright with the Gunner feat. The Archery, Dueling, Thrown Weapon, and
+Unarmed Fighting styles are applied; versatile and thrown damage are shown where they
+differ; and anything situational, such as the Hexblade's chosen weapon, is noted
+rather than assumed.
+
+**Printing.** *Print sheet* opens the browser's print dialog with a sheet laid out
+like the official one: a core page, a details page left blank for you to fill in,
+and a spells page when you cast. Choose *Save as PDF* to keep a copy. It is sized for
+US Letter with half-inch margins, and sections grow with their content, so a
+high-level character runs onto extra pages. The browser's own Print command gives
+the same sheet.
+
 
 ## What comes next
 
-Class, subclass, hit points, armor class, class saving throw proficiencies, spell
-slots, and spell selection. The engine already has the seams for these:
-`saveProfs` and `hpPerLevel` accumulate from any source, and `DND.BASE_ASI_LEVELS`
-is the only place that assumes the standard 4/8/12/16/19 progression — fighters and
-rogues will override it from class data.
+Personality traits, ideals, bonds, and flaws with their background tables (the
+printed sheet leaves them blank to write in). Encumbrance, magic items, mounts, and
+vehicles. Situational attack bonuses such as Rage and Sneak Attack.
 
 ## Files
 
 ```
-index.html          page shell and the six numbered steps
-css/style.css       all styling
-data/rules.js       abilities, skills, languages, tools, weapons,
-                    proficiency bonus, point buy, standard array, XP
-data/races.js       races, subraces, draconic ancestry, Custom Lineage
-data/backgrounds.js the 13 PHB backgrounds and their variants
-data/feats.js       PHB, Tasha's, and Xanathar's racial feats
-js/engine.js        pure derivation — state in, computed sheet out
-js/ui.js            DOM helpers and shared form widgets
-js/app.js           state, section rendering, save/load
+index.html               page shell and the eight numbered steps
+css/style.css            all styling, including the printed sheet
+data/rules.js            abilities, skills, languages, alignments,
+                         proficiency bonus, point buy, standard array, XP
+data/gear.js             weapons, armor, gear, tools, and packs, costed in copper
+data/starting-equipment.js  each class's starting kit
+data/races.js            races, subraces, draconic ancestry, Custom Lineage
+data/backgrounds.js      the 13 PHB backgrounds and their variants
+data/feats.js            PHB, Tasha's, and Xanathar's racial feats
+data/classes.js          the 13 classes and their progressions
+data/class-options.js    fighting styles, metamagic, invocations, and the like
+data/spells.js           all 477 spells and the class lists (generated)
+data/subclasses*.js      all 101 subclasses
+js/gear.js               equipment, purse, armor class options, attacks
+js/engine.js             pure derivation — state in, computed sheet out
+js/ui.js                 DOM helpers and shared form widgets
+js/print.js              the printed sheet, built from the computed sheet
+js/app.js                state, section rendering, save/load, printing
 ```
 
 `js/engine.js` touches no DOM, so it can be tested in Node directly:
 
 ```js
 global.window = global;
-require('./data/rules.js'); require('./data/races.js');
-require('./data/backgrounds.js'); require('./data/feats.js');
-require('./js/engine.js');
+['rules', 'gear', 'starting-equipment', 'races', 'backgrounds', 'feats', 'classes',
+ 'class-options', 'spells', 'subclasses', 'subclasses-xge-tce']
+  .forEach(f => require('./data/' + f + '.js'));
+require('./js/gear.js'); require('./js/engine.js');
 
 const s = DND.Engine.blankState();
 s.raceId = 'dwarf'; s.subraceId = 'hillDwarf'; s.backgroundId = 'soldier';

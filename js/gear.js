@@ -47,7 +47,9 @@
   function profWeapon(w) {
     return (w.proxy && DND.findWeapon(w.proxy)) || w;
   }
-  function knowsWeapon(profs, w) {
+  function knowsWeapon(profs, w, opts) {
+    /* The Gunner feat grants proficiency with firearms outright (TCE 80). */
+    if (w.firearm && opts && opts.firearms) return true;
     var ref = profWeapon(w);
     if (profs.indexOf(ref.name) !== -1) return true;
     return profs.indexOf(ref.category === 'simple' ? 'Simple weapons' : 'Martial weapons') !== -1;
@@ -98,9 +100,157 @@
 
   function lookup(name) { return name ? DND.findGear(name) : null; }
 
+  /* ---------------------------------------------------------------
+     Attacks: to-hit and damage for the weapons you carry.
+
+     Making an Attack (PHB 193): melee weapon attacks use Strength and
+     ranged weapon attacks Dexterity, and the proficiency bonus is added only
+     when proficient. Weapon properties (Weapons, PHB 146): a finesse weapon
+     uses either, the same one for attack and damage; a thrown melee weapon
+     keeps its melee ability. Damage and Healing (PHB 196): damage adds the
+     ability modifier used for the attack.
+     --------------------------------------------------------------- */
+  function diceAverage(d) {
+    var m = /^(\d+)d(\d+)$/.exec(d);
+    if (m) return m[1] * (Number(m[2]) + 1) / 2;
+    var n = Number(d);
+    return isNaN(n) ? 0 : n;
+  }
+  /* '1d8' and +3 -> '1d8+3'; a flat '1' and +3 -> '4', never below 0 */
+  function damageText(dice, mod) {
+    if (/^\d+$/.test(dice)) return String(Math.max(0, Number(dice) + mod));
+    return mod ? dice + DND.formatMod(mod) : dice;
+  }
+  function parseDamage(s) {
+    var m = s ? /^(\d+d\d+|\d+)\s+(.+)$/.exec(s) : null;
+    return m ? { dice: m[1], type: m[2] } : null;
+  }
+  function bestAbility(ids, mods) {
+    return ids.reduce(function (a, b) { return mods[b] > mods[a] ? b : a; });
+  }
+
+  function weaponAttack(w, ctx) {
+    var has = function (p) { return w.properties.indexOf(p) !== -1; };
+    var proficient = knowsWeapon(ctx.profs, w, { firearms: ctx.firearms });
+
+    /* Monk weapons are shortswords and simple melee weapons without the
+       two-handed or heavy property (Monk, PHB 76); kensei weapons count too (XGE 34). */
+    var monkWeapon = !!ctx.martialArts && (w.name === 'Shortsword' ||
+      (w.category === 'simple' && w.kind === 'melee' && !has('two-handed') && !has('heavy')) ||
+      ctx.kensei.indexOf(w.name) !== -1);
+
+    /* Martial Arts lets a monk use Dexterity *instead of Strength*,
+       so it widens melee weapons only; finesse allows either for any weapon. */
+    var base = w.kind === 'melee' ? 'str' : 'dex';
+    var options = has('finesse') || (monkWeapon && base === 'str') ? ['str', 'dex'] : [base];
+    var ability = bestAbility(options, ctx.mods);
+    var mod = ctx.mods[ability];
+    var archery = ctx.styles.archery && w.kind === 'ranged' ? 2 : 0;   /* ranged weapons only */
+    var toHit = mod + (proficient ? ctx.pb : 0) + archery;
+
+    var row = { name: w.name, ability: ability, proficient: proficient, toHit: toHit,
+                damage: null, damageType: null, twoHanded: null, thrown: null,
+                properties: w.text && w.text !== '\u2014' ? w.text : null, notes: [] };
+
+    var dmg = parseDamage(w.damage);
+    if (!dmg) {
+      row.damage = w.damage ? w.damage : '\u2014';     /* Grenade: Special; Net: none */
+    } else {
+      var dice = dmg.dice, twoDice = has('versatile') ? w.versatile : null;
+      /* the Martial Arts die replaces the weapon's die when it is better */
+      if (monkWeapon) {
+        var ma = '1' + ctx.martialArts;
+        if (diceAverage(ma) > diceAverage(dice)) { dice = ma; row.notes.push('Martial Arts die'); }
+        if (twoDice && diceAverage(ma) >= diceAverage(twoDice)) twoDice = null;
+      }
+      /* Dueling: +2 damage with a melee weapon held in one hand and no other
+         weapon (PHB 72). It does not apply when a versatile weapon is used two-handed. */
+      var dueling = ctx.styles.dueling && w.kind === 'melee' && !has('two-handed') ? 2 : 0;
+      /* Thrown Weapon Fighting: +2 damage on a ranged attack with a thrown weapon (TCE 42) */
+      var thrownBonus = ctx.styles.thrownWeapon && has('thrown') ? 2 : 0;
+
+      row.damageType = dmg.type;
+      if (w.kind === 'ranged') {
+        row.damage = damageText(dice, mod + thrownBonus);
+      } else {
+        row.damage = damageText(dice, mod + dueling);
+        if (twoDice) row.twoHanded = damageText(twoDice, mod);
+        if (has('thrown')) {
+          var thrownDamage = damageText(dice, mod + thrownBonus);
+          row.thrown = { range: w.range, damage: thrownDamage !== row.damage ? thrownDamage : null };
+        }
+      }
+      if (dueling) row.notes.push('Dueling +2 included; one weapon in hand');
+      if (ctx.styles.greatWeapon && w.kind === 'melee' && (has('two-handed') || twoDice)) {
+        row.notes.push('Great Weapon Fighting: reroll 1s and 2s' + (twoDice ? ' two-handed' : ''));
+      }
+
+      /* Hex Warrior: the weapon touched after a long rest may use Charisma
+         (XGE 55). Chosen per rest, so shown as an alternative, not applied. */
+      if (ctx.hexWarrior && proficient && !has('two-handed') && ctx.mods.cha > mod) {
+        row.notes.push('As your Hex Warrior weapon: ' + DND.formatMod(ctx.mods.cha + ctx.pb + archery) +
+          ' to hit, ' + damageText(dice, ctx.mods.cha + (w.kind === 'ranged' ? thrownBonus : dueling)));
+      }
+    }
+    if (!proficient) row.notes.push('Not proficient: no proficiency bonus');
+    if (has('heavy') && ctx.small) row.notes.push('Heavy: disadvantage for a Small creature');
+    return row;
+  }
+
+  /* An unarmed strike is listed only when something improves it. This PHB
+     printing puts it in the Simple Melee Weapons table dealing 1 bludgeoning,
+     plus the Strength modifier as for any melee weapon; Tavern Brawler makes
+     it a d4 and grants proficiency (PHB 170); Martial Arts supplies its die
+     and Dexterity (Monk, PHB 76); Unarmed Fighting makes it 1d6 + Strength, or 1d8
+     with no weapon or shield in hand (TCE 42). */
+  function unarmedAttack(ctx) {
+    var tavern = ctx.feats.indexOf('tavernBrawler') !== -1;
+    var monk = !!ctx.martialArts;
+    if (!tavern && !monk && !ctx.styles.unarmedFighting) return null;
+    var either = monk ? ['str', 'dex'] : ['str'];
+    var cands = [{ dice: '1', abilities: either }];
+    if (tavern) cands.push({ dice: '1d4', abilities: either });
+    if (monk) cands.push({ dice: '1' + ctx.martialArts, abilities: either, note: 'Martial Arts die' });
+    if (ctx.styles.unarmedFighting) cands.push({ dice: '1d6', abilities: ['str'], alt: '1d8' });
+    var pick = null, pickAbility = null, pickScore = -Infinity;
+    cands.forEach(function (c) {
+      var ab = bestAbility(c.abilities, ctx.mods);
+      var score = diceAverage(c.dice) + ctx.mods[ab];
+      if (score > pickScore) { pick = c; pickAbility = ab; pickScore = score; }
+    });
+    var mod = ctx.mods[pickAbility];
+    var proficient = tavern || ctx.profs.indexOf('Simple weapons') !== -1;
+    var row = { name: 'Unarmed strike', ability: pickAbility, proficient: proficient,
+                toHit: mod + (proficient ? ctx.pb : 0), damage: damageText(pick.dice, mod),
+                damageType: 'bludgeoning', twoHanded: null, thrown: null, properties: null, notes: [] };
+    if (pick.note) row.notes.push(pick.note);
+    if (pick.alt) row.notes.push('With no weapon or shield in hand: ' + damageText(pick.alt, mod));
+    if (!proficient) row.notes.push('Not proficient: no proficiency bonus');
+    return row;
+  }
+
+  /* One row per kind of weapon carried, quantities summed, then any unarmed strike. */
+  function attacks(inventory, ctx) {
+    var byName = {}, rows = [];
+    inventory.forEach(function (it) {
+      var w = DND.findWeapon(it.name);
+      if (!w) return;
+      if (byName[w.name]) { byName[w.name].qty += it.qty; return; }
+      var row = weaponAttack(w, ctx);
+      row.qty = it.qty;
+      byName[w.name] = row;
+      rows.push(row);
+    });
+    var unarmed = unarmedAttack(ctx);
+    if (unarmed) rows.push(unarmed);
+    return rows;
+  }
+
   DND.Gear = {
     blank: blank,
     choosers: CHOOSERS,
+    attacks: attacks,
+    knowsWeapon: knowsWeapon,
 
     /* Everything the Equipment step and the sheet need. */
     compute: function (state, classEntries, background, ctx) {
@@ -169,8 +319,12 @@
           /* light armor has no Dex cap at all, so guard on the type rather
              than on null: a missing key used to make this NaN. */
           var dex = typeof a.dexMax === 'number' ? Math.min(dexMod, a.dexMax) : dexMod;
-          acFromArmor.push({ label: a.name, value: a.base + dex, armor: a,
-            note: a.acText + (a.stealthDisadvantage ? ' \u00b7 stealth disadvantage' : '') });
+          /* Defense: +1 AC while wearing armor (PHB 72). A shield alone is not armor. */
+          var armored = ctx.armoredAcBonus || 0;
+          acFromArmor.push({ label: a.name, value: a.base + dex + armored, armor: a,
+            proficient: knowsArmor(armorProfs, a.category),
+            note: a.acText + (a.stealthDisadvantage ? ' \u00b7 stealth disadvantage' : '') +
+                  (armored ? ' Defense +' + armored + '.' : '') });
         }
 
         /* Strength minimum: too weak and the armor costs you 10 feet of
@@ -194,7 +348,7 @@
 
       inventory.forEach(function (it) {
         var w = DND.findWeapon(it.name);
-        if (!w || knowsWeapon(weaponProfs, w)) return;
+        if (!w || knowsWeapon(weaponProfs, w, { firearms: ctx.firearmsProficient })) return;
         var ref = profWeapon(w);
         weaponNotes.push('You are not proficient with ' + w.name +
           (ref !== w ? ' (it uses ' + ref.name + ' proficiency)' : '') +
@@ -207,6 +361,7 @@
         inventory: inventory, bought: bought, weight: Math.round(weight * 100) / 100,
         purseCp: purse, defaultPurseCp: defaultPurse, spentCp: spent, remainingCp: purse - spent,
         acFromArmor: acFromArmor, hasShield: hasShield, pending: pending,
+        shieldProficient: knowsArmor(armorProfs, 'shield'),
         armorNotes: armorNotes, weaponNotes: weaponNotes,
         wearingUnskilledArmor: unskilledArmor,
         wearingArmor: acFromArmor.length > 0
